@@ -1,0 +1,24 @@
+# gitleaks: scans commits for anything that looks like a credential.
+# Runs in pre-commit (before a commit exists) and in CI (on every push/PR).
+title = "cpf-ranking-predictions"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "cfbd-api-key-assignment"
+description = "CollegeFootballData API key assigned to a variable"
+regex = '''(?i)cfbd[_-]?(api[_-]?)?key\s*[:=]\s*["']?([A-Za-z0-9+/=_-]{20,})'''
+secretGroup = 2
+keywords = ["cfbd"]
+
+[[rules]]
+id = "bearer-token"
+description = "Hard-coded Bearer token"
+regex = '''(?i)bearer\s+([A-Za-z0-9+/=_.-]{24,})'''
+secretGroup = 1
+keywords = ["bearer"]
+
+[allowlist]
+description = "Fake values used in tests and docs"
+regexes = ['''FAKE-CFBD-KEY''', '''\{key\.reveal\(\)\}''', '''<your[-_ ]key>''']

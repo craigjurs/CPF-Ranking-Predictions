@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "enabledMcpjsonServers": ["cfbd"],
+  "permissions": {
+    "disableBypassPermissionsMode": "disable",
+    "allow": [
+      "mcp__cfbd__*",
+      "Bash(uv run pytest *)",
+      "Bash(uv run python *)",
+      "Bash(python -m pytest *)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(pre-commit run *)",
+      "Bash(gitleaks *)"
+    ],
+    "ask": [
+      "Bash(git push *)",
+      "Bash(uv add *)",
+      "Bash(pip install *)",
+      "Bash(uv pip install *)",
+      "Bash(curl *)",
+      "Bash(wget *)",
+      "WebFetch"
+    ],
+    "deny": [
+      "Read(.env)",
+      "Read(.env.local)",
+      "Read(.env.*.local)",
+      "Read(.env.production)",
+      "Read(.env.development)",
+      "Read(secrets/**)",
+      "Read(.secrets/**)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/credentials*.json)",
+      "Read(**/service-account*.json)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.gnupg/**)",
+      "Read(~/.config/op/**)",
+      "Read(~/.config/gh/**)",
+      "Read(~/.netrc)",
+      "Read(~/Library/Keychains/**)",
+      "Edit(.env)",
+      "Edit(.env.*)",
+      "Edit(.claude/settings.json)",
+      "Edit(.claude/hooks/**)",
+      "Edit(.mcp.json)",
+      "Edit(.gitleaks.toml)",
+      "Edit(.pre-commit-config.yaml)",
+      "Edit(.github/workflows/**)",
+      "Edit(mcp_servers/cfbd/src/cfbd_mcp/secrets.py)",
+      "Edit(mcp_servers/cfbd/src/cfbd_mcp/redact.py)",
+      "Edit(mcp_servers/cfbd/src/cfbd_mcp/endpoints.py)",
+      "Bash(op *)",
+      "Bash(bws *)",
+      "Bash(security *)",
+      "Bash(secret-tool *)",
+      "Bash(printenv*)",
+      "Bash(env)",
+      "Bash(gh secret *)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git commit --no-verify*)",
+      "Bash(pre-commit uninstall*)",
+      "WebFetch(domain:api.collegefootballdata.com)"
+    ]
+  },
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": false,
+    "allowUnsandboxedCommands": false,
+    "failIfUnavailable": false,
+    "excludedCommands": ["git push *"],
+    "filesystem": {
+      "denyRead": [
+        "~/.ssh",
+        "~/.aws",
+        "~/.gnupg",
+        "~/.config/op",
+        "~/.config/gh",
+        "~/.netrc",
+        "~/Library/Keychains",
+        "~/Library/Group Containers/2BUA8C4S2C.com.1password"
+      ]
+    },
+    "network": {
+      "allowedDomains": [
+        "github.com",
+        "api.github.com",
+        "objects.githubusercontent.com",
+        "pypi.org",
+        "files.pythonhosted.org"
+      ],
+      "deniedDomains": [
+        "api.collegefootballdata.com",
+        "*.1password.com",
+        "*.1password.eu",
+        "*.1password.ca",
+        "*.bitwarden.com",
+        "*.bitwarden.eu"
+      ]
+    }
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Read|Grep|Glob|Edit|Write|MultiEdit|NotebookEdit|WebFetch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

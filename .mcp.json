@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "cfbd": {
+      "command": "uv",
+      "args": ["run", "--quiet", "--project", "${CLAUDE_PROJECT_DIR:-.}/mcp_servers/cfbd", "cfbd-mcp"],
+      "env": {
+        "CFBD_SECRET_PROVIDER": "${CFBD_SECRET_PROVIDER:-auto}",
+        "CFBD_SECRET_REF": "${CFBD_SECRET_REF:-op://cfbd-agent/CFBD API/credential}",
+        "CFBD_RATE_PER_MINUTE": "30",
+        "CFBD_RATE_PER_DAY": "200"
+      }
+    }
+  }
+}
