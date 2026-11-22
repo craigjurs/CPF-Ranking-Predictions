@@ -14,6 +14,7 @@ This repo is public and is worked on by AI agents, so it ships with a security h
 
 - Core data pulled for 2000 to 2025 and stored as point-in-time snapshots. Modeling uses 2005 onward, without 2020.
 - Naive baselines and a walk-forward backtest are in place. Results and a plain-language walkthrough: [docs/baseline-results.md](docs/baseline-results.md)
+- Running list of ideas to try next (news, pundits, recruiting, markets and more): [docs/IDEAS.md](docs/IDEAS.md)
 
 ```sh
 uv run python -m cfp_rankings.pull       # fetch anything not cached yet (through the CFBD MCP server)
