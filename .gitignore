@@ -1,0 +1,39 @@
+# ---- Secrets: never commit these (see docs/security/) ----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+.secrets/
+credentials*.json
+service-account*.json
+*.op.env
+.claude/settings.local.json
+
+# ---- Data: raw pulls can be large; keep them out of git ----
+data/raw/
+data/cache/
+*.parquet
+*.feather
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+dist/
+build/
+uv.lock
+
+# ---- Notebooks / OS / editors ----
+.ipynb_checkpoints/
+.DS_Store
+.idea/
+.vscode/
