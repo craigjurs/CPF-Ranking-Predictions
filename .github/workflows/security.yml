@@ -43,7 +43,10 @@ jobs:
       - name: No risky workflow triggers
         run: |
           # pull_request_target runs with secrets on code from forks. Never use it in a public repo.
-          if grep -rnE 'pull_request_target|workflow_run' .github/workflows/; then exit 1; fi
+          # Match only trigger keys (e.g. "pull_request_target:" or "on: [push, workflow_run]"), not this check itself.
+          if grep -rnE '^[[:space:]-]*(pull_request_target|workflow_run)[[:space:]]*:?[[:space:]]*$|^[[:space:]-]*(pull_request_target|workflow_run)[[:space:]]*:|^on:.*(pull_request_target|workflow_run)' .github/workflows/; then
+            echo "Risky trigger found: pull_request_target and workflow_run can expose secrets to fork code."; exit 1
+          fi
       - name: Settings and MCP config are valid JSON
         run: |
           python3 -m json.tool .claude/settings.json > /dev/null
