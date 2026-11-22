@@ -64,7 +64,7 @@ def export(seasons: dict[int, Season], out_dir: Path = OUT_DIR) -> tuple[int, in
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Export tidy point-in-time tables.")
-    ap.add_argument("--start", type=int, default=2014)
+    ap.add_argument("--start", type=int, default=2000)
     ap.add_argument("--end", type=int, default=2025)
     args = ap.parse_args()
     n_games, n_ranks = export(load_seasons(range(args.start, args.end + 1)))

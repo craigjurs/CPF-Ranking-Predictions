@@ -10,3 +10,8 @@ def test_cached_files_are_never_fetched_again(tmp_path):
     todo = plan(years, tmp_path)
     assert ("games", 2022) not in todo and len(todo) == len(years) * len(DATASETS) - 1
     assert len(plan(years, tmp_path, refresh=True)) == len(years) * len(DATASETS)
+
+
+def test_lines_are_not_requested_before_they_exist(tmp_path):
+    assert ("lines", 2005) not in plan([2005], tmp_path)
+    assert ("lines", 2013) in plan([2013], tmp_path)

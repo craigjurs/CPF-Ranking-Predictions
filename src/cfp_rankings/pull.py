@@ -1,12 +1,12 @@
 """Pull the core CFBD data once and keep it on disk.
 
-    uv run python -m cfp_rankings.pull --start 2014 --end 2025
+    uv run python -m cfp_rankings.pull --start 2000 --end 2025
 
-Four files per season land in ``data/raw/<dataset>/<year>.json`` (gitignored):
+Up to four files per season land in ``data/raw/<dataset>/<year>.json`` (gitignored):
 
     rankings   every weekly AP / Coaches / CFP poll
     games      every game involving an FBS team, regular season and postseason
-    lines      sportsbook spreads, totals and moneylines for those games
+    lines      sportsbook spreads, totals and moneylines (2013 onward only)
     calendar   the start and end date of each week
 
 Analogy: this is the weekly grocery run. We buy a whole season in four trips,
@@ -37,6 +37,14 @@ DATASETS: dict[str, tuple[str, dict]] = {
     "calendar": ("get_calendar", {}),
 }
 
+# CFBD has no sportsbook lines before 2013 (checked: 2005 and 2012 come back
+# empty), so we don't spend quota asking.
+LINES_FIRST_SEASON = 2013
+
+
+def datasets_for(year: int) -> list[str]:
+    return [d for d in DATASETS if d != "lines" or year >= LINES_FIRST_SEASON]
+
 
 def raw_path(dataset: str, year: int, raw_dir: Path = RAW_DIR) -> Path:
     return raw_dir / dataset / f"{year}.json"
@@ -47,7 +55,7 @@ def plan(years: list[int], raw_dir: Path = RAW_DIR, refresh: bool = False) -> li
     return [
         (dataset, year)
         for year in years
-        for dataset in DATASETS
+        for dataset in datasets_for(year)
         if refresh or not raw_path(dataset, year, raw_dir).exists()
     ]
 
@@ -59,7 +67,7 @@ async def pull(years: list[int], raw_dir: Path = RAW_DIR, refresh: bool = False,
         return 0
     if len(todo) > max_calls:
         raise SystemExit(f"{len(todo)} calls needed, above --max-calls {max_calls}. Pull fewer seasons at a time.")
-    print(f"{len(todo)} API calls needed ({len(years) * len(DATASETS) - len(todo)} files already cached).")
+    print(f"{len(todo)} API calls needed ({sum(len(datasets_for(y)) for y in years) - len(todo)} files already cached).")
 
     manifest_path = raw_dir / "manifest.json"
     manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
@@ -84,7 +92,7 @@ async def pull(years: list[int], raw_dir: Path = RAW_DIR, refresh: bool = False,
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("--start", type=int, default=2014, help="first season (2014 = first CFP season)")
+    ap.add_argument("--start", type=int, default=2000, help="first season")
     ap.add_argument("--end", type=int, default=2025, help="last completed season")
     ap.add_argument("--refresh", action="store_true", help="re-pull even if cached (costs quota)")
     ap.add_argument("--max-calls", type=int, default=150)

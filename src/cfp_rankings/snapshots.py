@@ -45,6 +45,19 @@ POLLS = ("ap", "coaches", "cfp")
 FINAL_SLOT = 100
 
 
+def era(season: int) -> str:
+    """Which championship system was in force. Voters' incentives differ by era.
+
+    A feature for later models, so they can learn that a late-season loss
+    means something different when 12 teams make the playoff than when 2 do.
+    """
+    if season <= 2013:
+        return "bcs"  # two teams play for the title
+    if season <= 2023:
+        return "cfp4"  # four-team playoff
+    return "cfp12"  # twelve-team playoff
+
+
 def slot_of(season_type: str, week: int) -> int | None:
     if season_type == "regular":
         return week
@@ -140,7 +153,10 @@ class Season:
     @classmethod
     def load(cls, year: int, raw_dir: Path = RAW_DIR) -> "Season":
         def read(dataset):
-            return json.loads((raw_dir / dataset / f"{year}.json").read_text())
+            path = raw_dir / dataset / f"{year}.json"
+            if dataset == "lines" and not path.exists():
+                return []  # no sportsbook lines exist before 2013
+            return json.loads(path.read_text())
 
         return cls.from_raw(year, read("games"), read("lines"), read("rankings"), read("calendar"))
 

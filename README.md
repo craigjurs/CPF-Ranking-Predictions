@@ -12,7 +12,7 @@ This repo is public and is worked on by AI agents, so it ships with a security h
 
 ## Where things stand
 
-- Core data pulled for 2014 to 2025 and stored as point-in-time snapshots.
+- Core data pulled for 2000 to 2025 and stored as point-in-time snapshots. Modeling uses 2005 onward, without 2020.
 - Naive baselines and a walk-forward backtest are in place. Results and a plain-language walkthrough: [docs/baseline-results.md](docs/baseline-results.md)
 
 ```sh

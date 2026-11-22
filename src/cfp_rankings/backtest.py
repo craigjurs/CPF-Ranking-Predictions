@@ -3,19 +3,25 @@
     uv run python -m cfp_rankings.backtest
 
 Analogy: a flight simulator that replays history one week at a time. To grade
-the 2019 season the model may study 2014 to 2018 only. Then it "flies" 2019
+the 2019 season the model may study 2005 to 2018 only. Then it "flies" 2019
 poll by poll, and before each poll it sees only what was public that morning
-(a ``Snapshot``). Then 2020 with 2014 to 2019 as study material, and so on.
-It never trains on the future and never sees the answer it is graded on.
+(a ``Snapshot``). Then 2021 with everything earlier as study material, and so
+on. It never trains on the future and never sees the answer it is graded on.
 
-    study 2014            -> fly 2015
-    study 2014-2015       -> fly 2016
+    study 2005            -> fly 2006
+    study 2005-2006       -> fly 2007
     ...
-    study 2014-2022       -> fly 2023
+    study 2005-2022       -> fly 2023      (2020 is skipped throughout)
 
-2024 and 2025 are the final exam. They stay in a sealed envelope: this script
-refuses to score them unless you pass ``--include-holdout``, and that should
-happen once, at the very end, for the model we finally pick.
+Which seasons are used:
+
+* 2005 is the first season. 2000 to 2004 are on disk but CFBD's poll weeks and
+  game weeks don't line up reliably there (see docs/baseline-results.md).
+* 2020 is dropped, both as study material and as a test. COVID schedules made
+  it unlike any other season.
+* 2024 and 2025 are the final exam. They stay in a sealed envelope: this
+  script refuses to score them unless you pass ``--include-holdout``, and that
+  should happen once, at the very end, for the model we finally pick.
 """
 
 from __future__ import annotations
@@ -26,11 +32,12 @@ from pathlib import Path
 
 from cfp_rankings.baselines import CopyPoll, Example, Persistence, WinLossRule
 from cfp_rankings.metrics import METRICS, average, score
-from cfp_rankings.snapshots import Season, load_seasons
+from cfp_rankings.snapshots import Season, era, load_seasons
 
-FIRST_SEASON = 2014  # first CFP season
+FIRST_SEASON = 2005  # first season with reliably aligned poll and game weeks
+DROPPED = (2020,)  # COVID season
 HOLDOUT = (2024, 2025)
-DEV_SEASONS = tuple(range(FIRST_SEASON, HOLDOUT[0]))
+DEV_SEASONS = tuple(y for y in range(FIRST_SEASON, HOLDOUT[0]) if y not in DROPPED)
 
 
 def examples(season: Season, poll: str) -> list[Example]:
@@ -42,6 +49,8 @@ def walk_forward(seasons: dict[int, Season], poll: str, make_model, test_seasons
     """Return one row per predicted poll release."""
     rows = []
     for test_year in test_seasons:
+        if not seasons[test_year].releases(poll):
+            continue  # e.g. no CFP rankings before 2014
         train = [ex for y in sorted(seasons) if y < test_year for ex in examples(seasons[y], poll)]
         model = make_model()
         model.fit(train)  # past seasons only
@@ -52,7 +61,7 @@ def walk_forward(seasons: dict[int, Season], poll: str, make_model, test_seasons
             rows.append({"season": test_year, "slot": snap.slot, "poll": poll, "model": model.name,
                          **score(predicted, actual.rank_of())})
         knobs = getattr(model, "knobs", None)
-        if knobs is not None and getattr(model, "tune", False):
+        if knobs is not None and getattr(model, "tune", False) and rows:
             rows[-1]["knobs"] = knobs.__dict__
     return rows
 
@@ -106,8 +115,12 @@ def main() -> None:
     # The first season has nothing to study from, so testing starts one later.
     test_seasons = [y for y in years if y > FIRST_SEASON]
     rows = run(seasons, test_seasons)
-    print(f"Walk-forward test seasons: {test_seasons[0]}-{test_seasons[-1]}\n")
+    for r in rows:
+        r["era"] = era(r["season"])
+    print(f"Walk-forward test seasons: {test_seasons[0]}-{test_seasons[-1]}, without {DROPPED}\n")
     print(format_table(summarize(rows)))
+    print("\nBy era:\n")
+    print(format_table(summarize(rows, by=("poll", "era", "model")), by=("poll", "era", "model")))
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(json.dumps(rows, indent=1))

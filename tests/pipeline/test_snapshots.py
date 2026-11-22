@@ -1,6 +1,6 @@
 """The leakage tests: a snapshot must never contain the future."""
 
-from cfp_rankings.snapshots import FINAL_SLOT
+from cfp_rankings.snapshots import FINAL_SLOT, era
 
 
 def test_week2_poll_sees_only_week1_games(season):
@@ -56,3 +56,7 @@ def test_spread_is_the_median_across_books(season):
 def test_records(season):
     rec = season.snapshot("ap", 2).records()
     assert rec["Team 26"] == (1, 0) and rec["Team 03"] == (0, 1)
+
+
+def test_era():
+    assert [era(y) for y in (2013, 2014, 2023, 2024)] == ["bcs", "cfp4", "cfp4", "cfp12"]
