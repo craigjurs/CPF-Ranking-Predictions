@@ -37,3 +37,6 @@ uv.lock
 .DS_Store
 .idea/
 .vscode/
+
+# ---- Derived tables: rebuild with `python -m cfp_rankings.export` ----
+data/processed/
