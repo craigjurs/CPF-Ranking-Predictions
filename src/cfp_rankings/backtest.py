@@ -66,8 +66,8 @@ def walk_forward(seasons: dict[int, Season], poll: str, make_model, test_seasons
     return rows
 
 
-def model_menu(poll: str) -> list:
-    """Factories for the baselines that make sense for each poll."""
+def model_menu(poll: str, baselines_only: bool = False) -> list:
+    """Factories for the models that make sense for each poll."""
     if poll == "cfp":
         # The first CFP ranking of a season has no "last week", so the
         # carry-forward models start from that Sunday's AP poll.
@@ -77,13 +77,19 @@ def model_menu(poll: str) -> list:
             lambda: WinLossRule(fallback="ap"),
             lambda: WinLossRule(tune=True, fallback="ap"),
         ]
-    return [lambda: Persistence(), lambda: WinLossRule(), lambda: WinLossRule(tune=True)]
+    menu = [lambda: Persistence(), lambda: WinLossRule(), lambda: WinLossRule(tune=True)]
+    if not baselines_only:
+        # Imported here so the baselines still run without numpy or LightGBM.
+        from cfp_rankings.poll_model import PollRanker
+
+        menu.append(lambda: PollRanker())
+    return menu
 
 
-def run(seasons: dict[int, Season], test_seasons) -> list[dict]:
+def run(seasons: dict[int, Season], test_seasons, baselines_only: bool = False) -> list[dict]:
     rows = []
     for poll in ("ap", "coaches", "cfp"):
-        for make_model in model_menu(poll):
+        for make_model in model_menu(poll, baselines_only):
             rows += walk_forward(seasons, poll, make_model, test_seasons)
     return rows
 
@@ -105,7 +111,8 @@ def format_table(summary: list[dict], by=("poll", "model")) -> str:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Walk-forward backtest of the baseline models.")
+    ap = argparse.ArgumentParser(description="Walk-forward backtest of the baselines and the Stage 2 model.")
+    ap.add_argument("--baselines-only", action="store_true", help="skip the learned model (much faster)")
     ap.add_argument("--include-holdout", action="store_true", help="also score 2024-2025 (the sealed final exam)")
     ap.add_argument("--out", type=Path, help="write per-poll rows as JSON")
     args = ap.parse_args()
@@ -114,7 +121,7 @@ def main() -> None:
     seasons = load_seasons(years)
     # The first season has nothing to study from, so testing starts one later.
     test_seasons = [y for y in years if y > FIRST_SEASON]
-    rows = run(seasons, test_seasons)
+    rows = run(seasons, test_seasons, args.baselines_only)
     for r in rows:
         r["era"] = era(r["season"])
     print(f"Walk-forward test seasons: {test_seasons[0]}-{test_seasons[-1]}, without {DROPPED}\n")
