@@ -9,7 +9,7 @@ from cfbd_mcp.endpoints import BASE_URL
 
 EXPECTED = {
     "get_games", "get_rankings", "get_betting_lines", "get_team_records", "get_fbs_teams",
-    "get_calendar", "get_sp_ratings", "get_srs_ratings", "get_elo_ratings",
+    "get_calendar", "get_sp_ratings", "get_srs_ratings", "get_elo_ratings", "get_game_player_stats",
 }
 
 
@@ -35,3 +35,14 @@ def test_errors_are_friendly_and_clean(fake_key):
     server._client = None
     out = server._call("games", year=2024, team="bad;name")
     assert "error" in out and fake_key not in out["error"]
+
+
+@respx.mock
+def test_player_stats_needs_a_narrowing_filter(fake_key):
+    server._client = None
+    route = respx.get(f"{BASE_URL}/games/players").mock(return_value=httpx.Response(200, json=[{"id": 1}]))
+    out = server.get_game_player_stats(year=2024)
+    assert "error" in out and not route.called
+    out = server.get_game_player_stats(year=2024, week=3, team="Texas A&M")
+    assert "error" not in out and route.called
+    assert dict(route.calls.last.request.url.params) == {"year": "2024", "week": "3", "team": "Texas A&M"}

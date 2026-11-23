@@ -29,7 +29,7 @@ It covers two ideas from the ideas list:
 Sammy decided the two open questions this research raised:
 
 - **Team-level news counts are acceptable under the PII policy**, as long as no player names are stored. Option B below is approved. Option C (per-player records) stays off the table.
-- **Add a CFBD player-stats endpoint to the MCP allowlist.** The exact edit is in "The allowlist edit" below.
+- **Add a CFBD player-stats endpoint to the MCP allowlist.** Sammy also approved a one-time exception for an agent to make that edit. See "The allowlist edit" below.
 
 ## An analogy for what we are trying to measure
 
@@ -129,24 +129,9 @@ One setup step is needed: the CFBD MCP server currently allows only games, ranki
 
 #### The allowlist edit
 
-`mcp_servers/cfbd/src/cfbd_mcp/endpoints.py` is part of the security harness, so agents don't edit it. Add this entry to the `ENDPOINTS` dictionary, after `"elo_ratings"`:
+Done on 2026-11-22. `mcp_servers/cfbd/src/cfbd_mcp/endpoints.py` is part of the security harness, which agents normally don't edit. Sammy approved a one-time exception, and the entry `game_player_stats` (route `/games/players`) was added. It reuses the validators already in the file, so it adds one menu item and nothing else. The matching tool is `get_game_player_stats`. It refuses to run without at least one of `week`, `team` or `conference`, which keeps each pull small.
 
-```python
-    "game_player_stats": Endpoint(
-        "/games/players",
-        {
-            "year": ("year", _year),
-            "week": ("week", _week),
-            "season_type": ("seasonType", _season_type),
-            "team": ("team", _name),
-            "conference": ("conference", _name),
-        },
-    ),
-```
-
-It reuses the validators already in the file, so it adds one menu item and nothing else. The path `/games/players` is CFBD's per-game player box score route as best remembered. Confirm it against the CFBD docs before merging. CFBD expects `year` plus at least one of `week`, `team` or `conference` on this route.
-
-Once that is merged, an agent can add the matching `get_game_player_stats` tool in `server.py` (not a harness file) with a test, and then build the flag.
+The route name is from memory and was not tested against the live API. The first real call will confirm it.
 
 ### Arrests, conflicts and domestic issues
 
