@@ -43,7 +43,7 @@ from __future__ import annotations
 import lightgbm as lgb
 import numpy as np
 
-from cfp_rankings.features import FEATURES, History, build_rows, labels
+from cfp_rankings.features import AVAILABILITY_FEATURES, FEATURES, History, build_rows, labels
 from cfp_rankings.snapshots import PollRelease, Snapshot
 
 Example = tuple[Snapshot, PollRelease]
@@ -110,9 +110,15 @@ class PollRanker:
         predict(snapshot)  return teams, best first
     """
 
-    def __init__(self, trees: int = 600):
+    def __init__(self, trees: int = 600, availability: bool = False, seed: int = 0):
         self.trees = trees
-        self.name = "Stage 2: learned ranker"
+        # availability=True adds the "was a key player missing?" columns. It
+        # is off by default: in the walk-forward test they did not reduce the
+        # error (see docs/availability-flags-results.md).
+        self.availability = availability
+        self.seed = seed
+        self.features = FEATURES + (AVAILABILITY_FEATURES if availability else [])
+        self.name = "Stage 2: learned ranker" + (" + availability flags" if availability else "")
         self.history = History()
         self.model: lgb.Booster | None = None
         self._ratings_cache: dict = {}
@@ -122,7 +128,7 @@ class PollRanker:
         self.history.learn(examples)
         tables, answers, sizes = [], [], []
         for snap, actual in examples:
-            built = build_rows(snap, self.history, self._ratings_cache)
+            built = build_rows(snap, self.history, self._ratings_cache, self.availability)
             if built is None:
                 continue  # the preseason poll: nothing to start from
             teams, X = built
@@ -132,14 +138,14 @@ class PollRanker:
         if not tables:
             return
         X, y = np.vstack(tables), np.concatenate(answers)
-        params = dict(SETTINGS, objective=pairwise_objective(y, sizes))
-        self.model = lgb.train(params, lgb.Dataset(X, y, feature_name=FEATURES), self.trees)
+        params = dict(SETTINGS, seed=self.seed, objective=pairwise_objective(y, sizes))
+        self.model = lgb.train(params, lgb.Dataset(X, y, feature_name=self.features), self.trees)
 
     def scores(self, snap: Snapshot) -> dict[str, float] | None:
         """The model's strength number for every candidate. Higher is better."""
         if self.model is None:
             return None
-        built = build_rows(snap, self.history, self._ratings_cache)
+        built = build_rows(snap, self.history, self._ratings_cache, self.availability)
         if built is None:
             return None
         teams, X = built
@@ -157,4 +163,4 @@ class PollRanker:
             return []
         gain = self.model.feature_importance(importance_type="gain")
         total = float(gain.sum()) or 1.0
-        return sorted(zip(FEATURES, (float(g) / total for g in gain)), key=lambda kv: -kv[1])
+        return sorted(zip(self.features, (float(g) / total for g in gain)), key=lambda kv: -kv[1])

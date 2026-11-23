@@ -35,6 +35,8 @@ import statistics
 from dataclasses import dataclass
 from pathlib import Path
 
+from cfp_rankings.availability import Availability, load_box_rows, season_flags
+
 RAW_DIR = Path(__file__).resolve().parents[2] / "data" / "raw"
 
 POLL_NAMES = {"AP Top 25": "ap", "Coaches Poll": "coaches", "Playoff Committee Rankings": "cfp"}
@@ -89,6 +91,12 @@ class Game:
     away_elo_pre: float | None = None
     home_elo_post: float | None = None
     away_elo_post: float | None = None
+    # "Was a key player missing?" flags read off this game's box score (see
+    # availability.py). They describe the game itself, so like the score they
+    # are safe to use once the game has been played. None when no box score
+    # was pulled for the season.
+    home_avail: Availability | None = None
+    away_avail: Availability | None = None
 
     @property
     def winner(self) -> str | None:
@@ -158,11 +166,18 @@ class Season:
                 return []  # no sportsbook lines exist before 2013
             return json.loads(path.read_text())
 
-        return cls.from_raw(year, read("games"), read("lines"), read("rankings"), read("calendar"))
+        return cls.from_raw(year, read("games"), read("lines"), read("rankings"), read("calendar"),
+                            load_box_rows(year, raw_dir))
 
     @classmethod
-    def from_raw(cls, year: int, raw_games, raw_lines, raw_rankings, raw_calendar) -> "Season":
+    def from_raw(cls, year: int, raw_games, raw_lines, raw_rankings, raw_calendar, box_rows=None) -> "Season":
         lines = {row["id"]: row.get("lines") or [] for row in raw_lines}
+        # Availability flags compare each box score with the team's earlier
+        # games, so they need the games in kickoff order.
+        flags = {}
+        if box_rows:
+            kickoff = sorted((g["startDate"], g["id"]) for g in raw_games if g.get("startDate"))
+            flags = season_flags(box_rows, {gid: i for i, (_, gid) in enumerate(kickoff)})
         games = []
         for g in raw_games:
             slot = slot_of(g["seasonType"], g["week"])
@@ -189,6 +204,8 @@ class Season:
                     away_elo_pre=g.get("awayPregameElo"),
                     home_elo_post=g.get("homePostgameElo"),
                     away_elo_post=g.get("awayPostgameElo"),
+                    home_avail=flags.get((g["id"], g["homeTeam"])),
+                    away_avail=flags.get((g["id"], g["awayTeam"])),
                 )
             )
 

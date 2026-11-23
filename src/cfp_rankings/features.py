@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from cfp_rankings.availability import FLAGS
 from cfp_rankings.power import POWER, RESUME, PowerSettings, Ratings, fit_ratings, next_season_prior
 from cfp_rankings.snapshots import FINAL_SLOT, PollRelease, Snapshot
 
@@ -114,13 +115,21 @@ FEATURES = [
     "week", "is_final", "era",
 ]
 
+# Optional extra facts: was a key player missing in the game(s) the team just
+# played, and was its opponent short-handed? Read off box scores, see
+# availability.py. Blank for seasons with no box scores pulled.
+AVAILABILITY_FEATURES = [*FLAGS, "opp_qb_changed", "opp_production_missing_pct"]
+
 
 def _cap(margin: float, cap: float = 28.0) -> float:
     return max(-cap, min(cap, margin))
 
 
-def build_rows(snap: Snapshot, history: History, cache: dict | None = None):
+def build_rows(snap: Snapshot, history: History, cache: dict | None = None, availability: bool = False):
     """Return ``(teams, X)``: the candidates and their feature rows, or None.
+
+    With ``availability=True`` the ``AVAILABILITY_FEATURES`` columns are added
+    after the ``FEATURES`` columns.
 
     Candidates are last week's 25 plus every FBS team that has not lost since
     that poll. (Across 2005 to 2023, one team out of 709 newcomers entered the
@@ -227,7 +236,30 @@ def build_rows(snap: Snapshot, history: History, cache: dict | None = None):
             1.0 if snap.slot == FINAL_SLOT else 0.0,
             _era_index(snap.season),
         ])
+        if availability:
+            rows[-1] += _availability_row(gs)
     return teams, np.array(rows, dtype=float)
+
+
+def _availability_row(recent_games) -> list[float]:
+    """The team's own flags, then two about its opponent, for games since the last poll.
+
+    Usually that is one game. When it is several (the final poll covers
+    championship week and the bowls) each column takes the worst case.
+    """
+    mine, theirs = [], []
+    for _, _, _, _, game, side in recent_games:
+        own, opp = (game.home_avail, game.away_avail) if side == 1 else (game.away_avail, game.home_avail)
+        if own is not None:
+            mine.append(own)
+        if opp is not None:
+            theirs.append(opp)
+
+    def worst(cards, flag):
+        values = [v for v in (getattr(c, flag) for c in cards) if v == v]  # drop blanks
+        return max(values) if values else NAN
+
+    return [worst(mine, f) for f in FLAGS] + [worst(theirs, "qb_changed"), worst(theirs, "production_missing_pct")]
 
 
 def _mean(values) -> float:
