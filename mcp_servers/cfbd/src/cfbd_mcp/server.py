@@ -35,7 +35,7 @@ SeasonType = Literal["regular", "postseason", "both"]
 mcp = MCPServer(
     name="cfbd",
     instructions=(
-        "Read-only access to CollegeFootballData (games, polls, betting lines, ratings). "
+        "Read-only access to CollegeFootballData (games, polls, betting lines, ratings, TV listings, venues). "
         "Authentication is handled inside the server; never ask for or try to obtain an API key."
     ),
 )
@@ -150,6 +150,27 @@ def get_game_player_stats(
         return {"error": "Give at least one of week, team, or conference to keep the pull small."}
     return _call("game_player_stats", year=year, week=week, season_type=season_type, team=team,
                  conference=conference)
+
+
+@mcp.tool(annotations=READ_ONLY)
+def get_game_media(
+    year: int,
+    week: int | None = None,
+    season_type: SeasonType | None = None,
+    team: str | None = None,
+    conference: str | None = None,
+    media_type: Literal["tv", "radio", "web", "ppv", "mobile"] | None = None,
+    classification: Literal["fbs", "fcs", "ii", "iii"] | None = None,
+) -> dict:
+    """Which network or outlet carried each game, with the kickoff time."""
+    return _call("game_media", year=year, week=week, season_type=season_type, team=team,
+                 conference=conference, media_type=media_type, classification=classification)
+
+
+@mcp.tool(annotations=READ_ONLY)
+def get_venues() -> dict:
+    """Stadiums with their capacity and location. Takes no options."""
+    return _call("venues")
 
 
 def main() -> None:
