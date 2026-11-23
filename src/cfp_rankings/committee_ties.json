@@ -1,0 +1,12 @@
+{
+ "_about": "Schools with a recused CFP selection committee member, by season. A member is recused from a school that pays them or employs close family. Value = number of recused members. Team-level only: no names are stored. Sources and adjustments are listed in docs/clout-step-1-results.md. Team names follow CFBD.",
+ "2014": {"Wisconsin": 1, "USC": 1, "Arkansas": 1, "West Virginia": 1, "Clemson": 1, "Nebraska": 1, "Air Force": 1, "Stanford": 1},
+ "2015": {"Air Force": 1, "Arkansas": 1, "Clemson": 1, "Duke": 1, "Nebraska": 1, "Stanford": 2, "Texas Tech": 1, "Wisconsin": 1},
+ "2016": {"Arkansas": 1, "Central Michigan": 1, "Clemson": 1, "Duke": 1, "Oregon": 1, "Southern Miss": 1, "Stanford": 2, "Texas Tech": 1, "Wisconsin": 1},
+ "2017": {"Arkansas": 1, "Missouri": 1, "Central Michigan": 1, "Clemson": 1, "Duke": 1, "Stanford": 1, "Oregon": 1, "Southern Miss": 1, "Texas Tech": 1, "Virginia Tech": 1, "Georgia": 1, "Ohio State": 1},
+ "2018": {"Florida": 1, "Georgia Tech": 1, "Ohio State": 1, "Oklahoma": 2, "Oregon": 1, "Arizona State": 1, "Central Michigan": 1, "Southern Miss": 1, "Virginia Tech": 1},
+ "2019": {"Arizona State": 2, "Arkansas State": 1, "Florida": 1, "Georgia Tech": 1, "Iowa": 1, "Mississippi State": 1, "NC State": 1, "Oklahoma": 2, "Oregon": 1, "Texas A&M": 1, "Virginia Tech": 1},
+ "2021": {"Arizona State": 1, "Colorado": 1, "Georgia State": 1, "Iowa": 1, "Kansas State": 1, "Kentucky": 1, "NC State": 1, "Notre Dame": 1, "Ohio": 1, "Stanford": 1, "Wyoming": 1},
+ "2022": {"Colorado": 1, "Houston": 1, "Kansas State": 1, "Kentucky": 1, "Marshall": 1, "Michigan": 1, "Navy": 1, "NC State": 1, "Notre Dame": 2, "Rutgers": 1, "Wyoming": 1},
+ "2023": {"Houston": 1, "Kansas State": 1, "Kentucky": 1, "Marshall": 1, "Miami (OH)": 1, "Michigan": 1, "Navy": 1, "NC State": 1, "Nevada": 1, "Notre Dame": 2, "Rutgers": 1, "Utah": 1}
+}

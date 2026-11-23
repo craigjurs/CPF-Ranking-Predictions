@@ -64,7 +64,7 @@ class Ratings:
 
     def ranks(self, teams) -> dict[str, int]:
         """1 = best, among the given teams."""
-        order = sorted(teams, key=lambda t: -self.of(t))
+        order = sorted(teams, key=lambda t: (-self.of(t), t))  # name breaks ties, so runs repeat exactly
         return {t: i + 1 for i, t in enumerate(order)}
 
 

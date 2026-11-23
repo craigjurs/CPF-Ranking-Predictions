@@ -42,7 +42,7 @@ def run(seeds: list[int], polls=("ap", "coaches"), trees: int = 600) -> dict:
         for poll in polls:
             for test_year in test_seasons:
                 train = [ex for y in sorted(seasons) if y < test_year for ex in examples(seasons[y], poll)]
-                plain, flagged = PollRanker(trees, seed=seed), PollRanker(trees, availability=True, seed=seed)
+                plain, flagged = PollRanker(trees, seeds=(seed,)), PollRanker(trees, seeds=(seed,), availability=True)
                 plain.fit(train)
                 flagged.fit(train)
                 for snap, actual in examples(seasons[test_year], poll):
