@@ -89,7 +89,16 @@ def model_menu(poll: str, baselines_only: bool = False) -> list:
 def run(seasons: dict[int, Season], test_seasons, baselines_only: bool = False) -> list[dict]:
     rows = []
     for poll in ("ap", "coaches", "cfp"):
-        for make_model in model_menu(poll, baselines_only):
+        menu = model_menu(poll, baselines_only)
+        if poll == "cfp" and not baselines_only:
+            # Imported here so the baselines still run without numpy.
+            from cfp_rankings.cfp_model import CarryForward, CfpRanker
+
+            # AP history for every season, used only for what carries over
+            # between years. The model never reads a season it is predicting.
+            background = [ex for y in sorted(seasons) for ex in examples(seasons[y], "ap")]
+            menu += [CarryForward, lambda: CfpRanker(background)]
+        for make_model in menu:
             rows += walk_forward(seasons, poll, make_model, test_seasons)
     return rows
 
@@ -111,7 +120,7 @@ def format_table(summary: list[dict], by=("poll", "model")) -> str:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Walk-forward backtest of the baselines and the Stage 2 model.")
+    ap = argparse.ArgumentParser(description="Walk-forward backtest of the baselines, the Stage 2 poll model and the Stage 3 CFP model.")
     ap.add_argument("--baselines-only", action="store_true", help="skip the learned model (much faster)")
     ap.add_argument("--include-holdout", action="store_true", help="also score 2024-2025 (the sealed final exam)")
     ap.add_argument("--out", type=Path, help="write per-poll rows as JSON")
