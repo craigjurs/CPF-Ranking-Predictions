@@ -134,3 +134,40 @@ def test_tv_table_separates_tv_from_league():
     assert abs(table["league fixed"][0]) < 0.05
     assert table["league, measure fixed"][0] == pytest.approx(4, abs=0.2)
     assert "league and money fixed" not in table  # no finance data in these rows
+
+
+def test_committee_ties_file_is_team_level_and_matches_cfbd_names():
+    import json
+
+    from cfp_rankings.clout import CFP_SEASONS, TIES_FILE, committee_ties
+
+    data = json.loads(TIES_FILE.read_text())
+    assert {int(k) for k in data if not k.startswith("_")} == set(CFP_SEASONS)
+    for season in CFP_SEASONS:
+        ties = committee_ties(season)
+        assert 8 <= len(ties) <= 12 and all(n in (1, 2) for n in ties.values())
+    assert committee_ties(2022)["Notre Dame"] == 2 and committee_ties(1999) == {}
+
+
+def test_league_ties_count_other_schools_in_the_same_conference():
+    from cfp_rankings.clout import league_tie_counts
+
+    conf = {"A": "SEC", "B": "SEC", "C": "SEC", "D": "Big Ten", "Indy": "FBS Independents", "E": "Sun Belt"}
+    seats = league_tie_counts({"A": 2, "B": 1, "Indy": 1}, conf)
+    assert seats["C"] == 3  # both tied SEC schools count for a third SEC team
+    assert seats["A"] == 1 and seats["B"] == 2  # a school's own member is not a league-mate
+    assert "D" not in seats and "E" not in seats and "Indy" not in seats
+
+
+def test_same_school_change_compares_a_school_with_itself():
+    from cfp_rankings.clout import same_school_change
+
+    rows = []
+    for team, bonus in (("A", 2), ("B", 4)):
+        for season, tie in ((2014, False), (2015, True), (2016, True)):
+            for slot in (10, 11):
+                cfp = 15 - (bonus if tie else 0)
+                rows.append(Row(season, slot, team, cfp, 15, 15, 15, 15, 0, 0.0, True, tie=tie))
+    rows.append(Row(2014, 10, "Never tied", 5, 20, 20, 20, 20, 0, 0.0, True))  # ignored: no "with" seasons
+    mean, low, high, schools = same_school_change(rows, lambda r: r.ap - r.cfp)
+    assert schools == 2 and mean == pytest.approx(3.0) and low <= mean <= high

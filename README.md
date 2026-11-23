@@ -15,7 +15,7 @@ This repo is public and is worked on by AI agents, so it ships with a security h
 - Core data pulled for 2000 to 2025 and stored as point-in-time snapshots. Modeling uses 2005 onward, without 2020.
 - Naive baselines and a walk-forward backtest are in place. Results and a plain-language walkthrough: [docs/baseline-results.md](docs/baseline-results.md)
 - **CFP model (Stage 3).** Predicts the committee's ranking from last week's committee ranking, this week's AP and Coaches polls, and the committee's measured tastes. Beats the baselines in every test season: [docs/cfp-model-results.md](docs/cfp-model-results.md)
-- **Clout study.** Does a famous name or a big league buy a better CFP ranking than results justify, and was the committee right? Also measures the conference championship bump, and separates league from school money (federal finance data), TV exposure and crowd size. Results: [docs/clout-step-1-results.md](docs/clout-step-1-results.md)
+- **Clout study.** Does a famous name or a big league buy a better CFP ranking than results justify, and was the committee right? Also measures the conference championship bump, and separates league from school money (federal finance data), TV exposure, crowd size and committee ties. Results: [docs/clout-step-1-results.md](docs/clout-step-1-results.md)
 - **TV data.** Which network showed each game, plus stadium sizes, turned into a per-team TV exposure score built from earlier seasons. Setup notes: [docs/tv-data-setup.md](docs/tv-data-setup.md)
 - Running list of ideas to try next (news, pundits, recruiting, markets and more): [docs/IDEAS.md](docs/IDEAS.md)
 

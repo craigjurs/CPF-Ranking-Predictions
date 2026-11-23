@@ -1,10 +1,10 @@
 # Clout study: does the name or the league buy a better ranking?
 
-Results so far for the plan in [research/money-and-politics-in-rankings.md](research/money-and-politics-in-rankings.md): step 1 (the gap), step 4 (the acid test), a look at conference championships, step 3 (school money) and step 6 (TV exposure and crowd size). Everything except the money and TV sections uses only data we already had. Code: `src/cfp_rankings/clout.py`.
+Results so far for the plan in [research/money-and-politics-in-rankings.md](research/money-and-politics-in-rankings.md): step 1 (the gap), step 4 (the acid test), a look at conference championships, step 3 (school money), step 6 (TV exposure and crowd size) and step 5 (committee ties). Everything except the money, TV and committee sections uses only data we already had. Code: `src/cfp_rankings/clout.py`.
 
 ## The one-paragraph version
 
-**The famous name does not seem to buy anything. The league does.** After allowing for what teams did on the field, programs with a strong recent brand were not ranked higher by the CFP committee. But teams from the five power conferences were: for the same team in the same week, **the committee ranked power-conference teams about 2 spots more favorably than the AP voters did, relative to everyone else.** That held in all nine seasons tested. The acid test asked whether the committee was right to do that. **There are too few games to settle it, but nothing in them says the committee was right:** ranked small-league teams won 15 of their 26 later games against power-conference teams. Conference championships matter, but modestly: about one extra spot beyond the win itself, and the committee treats them the same way AP voters do. And when money is added, **it is the league badge that counts, not the bank balance**: once we know a team's league, knowing how rich the school is tells us nothing more. **TV exposure tells the same story as money:** on its own it looks like it helps, and once league is held fixed the fairest TV measure shows no benefit at all.
+**The famous name does not seem to buy anything. The league does.** After allowing for what teams did on the field, programs with a strong recent brand were not ranked higher by the CFP committee. But teams from the five power conferences were: for the same team in the same week, **the committee ranked power-conference teams about 2 spots more favorably than the AP voters did, relative to everyone else.** That held in all nine seasons tested. The acid test asked whether the committee was right to do that. **There are too few games to settle it, but nothing in them says the committee was right:** ranked small-league teams won 15 of their 26 later games against power-conference teams. Conference championships matter, but modestly: about one extra spot beyond the win itself, and the committee treats them the same way AP voters do. And when money is added, **it is the league badge that counts, not the bank balance**: once we know a team's league, knowing how rich the school is tells us nothing more. **TV exposure tells the same story as money:** on its own it looks like it helps, and once league is held fixed the fairest TV measure shows no benefit at all. **And having a friend on the committee does not help either:** schools with their own athletic director or a relative's employer in the room were ranked no differently from everyone else.
 
 **Analogy.** Back to the gymnasts. We checked two things about the judges. Do they score a famous gymnast higher for the same routine? No sign of it. Do they score gymnasts from the big-name gyms higher than gymnasts from small gyms? Yes. The judges would say big-gym gymnasts face tougher competition every week, so the same routine *means* more. The acid test is sending both to the same meet and seeing who wins. We only have 26 such meets, and the small-gym gymnasts held their own.
 
@@ -291,18 +291,72 @@ It lines up with the money lead and is worth remembering as: **among outsiders, 
 - These are counts of TV slots, not of viewers. Real audience figures would need Sports Media Watch, and the plan says to ask them first.
 - TV, money and crowd size move together (see the setup notes), so "which part of the bundle" was always going to be blurry. What is clear is that none of the three adds anything to league.
 
+## Committee ties
+
+This is the most literal version of the "politics" idea. The committee has 13 members, and most seasons about half of them are sitting athletic directors. Does a school do better when one of its own people is at the table? Does a *league* do better when it holds more seats?
+
+**How it is measured.** Before each season the CFP publishes a recusal list: each member, and the school that pays them or employs a close relative. A recused member may not vote on that school and must leave the room when it is discussed. I typed in the lists for all nine seasons and kept two numbers per team and season:
+
+| Number | Meaning |
+|---|---|
+| Own member | Does this school have a recused member this season? Yes or no |
+| League-mates | How many members are recused from *other* schools in this team's conference. These members can vote on the team, and what is good for the league is good for their own school |
+
+Of the 354 team-seasons in the study, 44 had a member of their own. The typical power-conference team had one league-mate on the committee. The typical team from another league had none.
+
+Only team-level numbers are stored (`src/cfp_rankings/committee_ties.json`). No names are kept.
+
+### Results
+
+Extra spots, with the margin of error in brackets. League is held fixed throughout.
+
+| | Committee against AP, same team and week | Committee against résumé rank | AP voters against résumé rank |
+|---|---|---|---|
+| Own school has a member | 0.0 (-0.4 to +0.4) | +0.5 (-0.6 to +1.5) | +0.5 (-0.6 to +1.5) |
+| Each league-mate on the committee | +0.1 (-0.1 to +0.2) | **+0.7** (+0.1 to +1.3) | **+0.6** (+0.1 to +1.2) |
+| League, with ties held fixed | **+2.0** (+1.4 to +2.6) | **+4.6** (+3.1 to +6.1) | **+2.6** (+1.1 to +4.1) |
+
+And the cleanest comparison of all: **the same school, in seasons with a member against seasons without.** Twenty-one schools appear both ways.
+
+| Same school, with a member minus without | Change in spots |
+|---|---|
+| Committee against AP | -0.5 (-1.0 to +0.1) |
+| Committee against résumé rank | +0.7 (-0.6 to +2.0) |
+| AP voters against résumé rank | +1.2 (-0.2 to +2.5) |
+
+How to read it:
+
+1. **A friend in the room buys nothing.** Compared with AP voters judging the same team in the same week, schools with their own member are ranked exactly the same as schools without. The estimate is zero, and the data rules out a benefit bigger than about half a spot.
+2. **The same school gets no boost when its person joins.** If anything the committee is slightly *harder* on it than AP voters are in those years (half a spot, and that could be chance). That is what you would expect if the recusal rule works, or if the remaining members lean against looking biased.
+3. **League-mates look helpful at first, but AP voters show the identical pattern.** Against on-field results, each extra league-mate goes with about 0.7 spots. AP voters, who have no committee seats to worry about, give the same teams the same 0.6. So this is not the committee doing favors. It is more likely that the leagues with the most seats (the SEC and Big Ten) are the ones every ranker rates above their raw results.
+4. **The league effect is untouched again.** About 2 spots, just as before.
+
+**Analogy.** Think of a figure skating panel where a judge must step out whenever a skater from their own club performs. We checked whether those skaters still score better because the other judges are the absent judge's colleagues. They do not. The panel's habit of scoring big-club skaters higher is real, but it applies to every big club equally, whether or not that club has a judge on the panel this year.
+
+### What this means for the "politics" idea
+
+The committee's tilt toward the power conferences is real and steady. But it does not flow through any channel we can measure person by person. Not through a school's own representative, and not through its league's head count at the table. That points away from favors and toward a **shared belief**: nearly everyone on the committee comes from big-time football and takes it for granted that a power-conference schedule is worth more. Whether that belief is correct is the acid test question above, which is still open.
+
+### About the data
+
+- Sources: the CFP's own "selection committee prepares for the season" releases for 2015, 2016, 2019, 2021, 2022 and 2023, and ESPN and NBC Sports reports of the lists for 2014, 2017 and 2018.
+- Three adjustments, each because the member did not actually serve during that season's rankings according to the CFP's all-time member list: Ole Miss is left out for 2014 and USC for 2015 (their members withdrew before the first ranking), and for 2023 Washington is replaced by Utah (the Washington athletic director left the committee in August and Utah's replaced her). The Utah recusal is my inference from that swap and was not on the August list.
+- The published lists do not say whether a recusal is full or partial, so all are treated alike.
+- Forty-four team-seasons is a small sample. It can rule out a large benefit, not a tiny one.
+
 ## What this does and does not show
 
 - **It shows a pattern, not a motive.** The committee is consistently harder on small-league teams than AP voters are. That fits the "politics" idea, since the committee is largely made up of power-conference athletic directors. It also fits a plain football explanation: the committee weighs schedule strength more heavily, and may be right to.
 - **The acid test leans against the committee but is far too small to settle it.** Twenty-six games, nine of them true upset chances.
 - **League and money are mostly untangled, with one gap.** Within a league, money does not matter. But the two groups barely overlap in wealth, so a "minimum money to be taken seriously" story cannot be ruled out.
 - **TV exposure and crowd size add nothing beyond league.** Unlike money, the TV scores do overlap between the two groups (Boise State and BYU were on national TV more than many power-conference teams), so this result is less exposed to the "no overlap" caveat.
+- **Committee ties add nothing.** A school's own member, and its league's head count on the committee, do not move its ranking relative to AP voters.
 - **The margin of error treats each team-season as one unit**, because the same team appears week after week with almost the same rank. There are still only nine seasons, so a few unusual years carry weight.
 
 ## What I suggest next
 
 1. **Feed what we learned into the CFP prediction model.** *(Done, see [cfp-model-results.md](cfp-model-results.md).)* League, title-game result and the brand measure are now known to shape the committee's ranking in specific ways, which is exactly what the CFP correction model on the ideas list needs.
-2. **Add long-run prestige and committee ties** (steps 2 and 5), which are cheap. With money, TV and crowds now ruled out as separate forces, committee ties are the most direct remaining test of the "politics" idea.
+2. **Long-run prestige** (step 2) is the one cheap measure left. Brand over five years showed nothing, so I would not expect much.
 3. **Run the realignment test when the sealed seasons are opened.** It is the cleanest way to separate league from money, but 2024 and 2025 are also the prediction model's final exam, so opening them is Sammy's call.
 
 ## Run it yourself
