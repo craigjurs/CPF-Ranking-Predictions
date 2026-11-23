@@ -33,8 +33,13 @@ from cfp_rankings.snapshots import load_seasons
 FIRST_FLAG_SEASON = 2013
 
 
-def run(seeds: list[int], polls=("ap", "coaches"), trees: int = 600) -> dict:
+def run(seeds: list[int], polls=("ap", "coaches"), trees: int = 600, committee: int = 3) -> dict:
+    """``committee`` is how many models are averaged inside each cook, as in
+    the real Stage 2 model. Batch ``s`` uses model seeds ``s*committee`` up to
+    ``s*committee + committee - 1``, so batch 0 is exactly the model the
+    backtest runs."""
     seasons = load_seasons(DEV_SEASONS)
+    cache: dict = {}  # scouting cards, shared so each is written once
     with_flags = [y for y in DEV_SEASONS if any(g.home_avail for g in seasons[y].games)]
     test_seasons = [y for y in with_flags if y > min(with_flags)]
     rows, teams_seen = [], []
@@ -42,7 +47,9 @@ def run(seeds: list[int], polls=("ap", "coaches"), trees: int = 600) -> dict:
         for poll in polls:
             for test_year in test_seasons:
                 train = [ex for y in sorted(seasons) if y < test_year for ex in examples(seasons[y], poll)]
-                plain, flagged = PollRanker(trees, seeds=(seed,)), PollRanker(trees, seeds=(seed,), availability=True)
+                judges = tuple(range(seed * committee, (seed + 1) * committee))
+                plain = PollRanker(trees, seeds=judges, cache=cache)
+                flagged = PollRanker(trees, seeds=judges, cache=cache, availability=True)
                 plain.fit(train)
                 flagged.fit(train)
                 for snap, actual in examples(seasons[test_year], poll):
@@ -138,6 +145,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2, 3])
     ap.add_argument("--trees", type=int, default=600)
+    ap.add_argument("--committee", type=int, default=3, help="models averaged per batch, as in the real Stage 2 model")
     ap.add_argument("--threads", type=int, help="LightGBM threads. Use 1 when running several seeds side by side")
     ap.add_argument("--out", type=Path, help="write raw rows as JSON")
     ap.add_argument("--merge", type=Path, nargs="+", help="skip the run; report on these --out files instead")
@@ -149,7 +157,7 @@ def main() -> None:
     else:
         if args.threads:
             SETTINGS["num_threads"] = args.threads
-        result = run(args.seeds, trees=args.trees)
+        result = run(args.seeds, trees=args.trees, committee=args.committee)
         if args.out:
             args.out.parent.mkdir(parents=True, exist_ok=True)
             args.out.write_text(json.dumps(result))
