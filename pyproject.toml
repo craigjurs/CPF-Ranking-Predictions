@@ -3,9 +3,10 @@ name = "cfp-rankings"
 version = "0.1.0"
 description = "Predict weekly AP, Coaches and CFP top 25 polls."
 requires-python = ">=3.11"
-# The models so far are pure Python. `mcp` is only needed to pull data,
-# because pulls go through the repo's CFBD MCP server.
-dependencies = ["mcp>=2.3,<3"]
+# `mcp` is only needed to pull data, because pulls go through the repo's CFBD
+# MCP server. numpy and LightGBM power the Stage 1 and Stage 2 models; the
+# naive baselines run without them.
+dependencies = ["mcp>=2.3,<3", "numpy>=2", "lightgbm>=4.5,<5"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
