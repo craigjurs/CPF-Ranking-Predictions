@@ -60,6 +60,6 @@ At the other end, Massachusetts, Rice, North Texas, Old Dominion and Liberty had
 4. **Slots are not viewers.** A noon game on ABC and a primetime game on ABC count the same in the first two measures. Real audience numbers would need Sports Media Watch, and the plan says to ask them before collecting.
 5. **Stadium capacity is today's figure**, not the figure in each past season.
 
-## Next step
+## What came of it
 
-Add the TV score as a factor in the clout study, the same way money was added, and ask: for the same on-field results, does a team that was on national TV more often get ranked higher by the committee than by its results, and does that survive once league is held fixed?
+The test was run the same day. TV exposure and crowd size add nothing once league is held fixed. See "TV and crowds against league" in [clout-step-1-results.md](clout-step-1-results.md).
