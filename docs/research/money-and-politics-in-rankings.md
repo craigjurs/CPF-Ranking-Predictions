@@ -176,7 +176,7 @@ Even if the answer to "is it biased?" turns out to be "a little", these same mea
 | 2 | Add the long-run prestige measure from AP history | None | No |
 | 3 | Add EADA finances and conference payouts | Two free downloads, kept in `data/raw/` | No |
 | 4 | Run the acid test | None | No |
-| 5 | Add committee ties from recusal lists | Hand-typed, about 16 rows a season | No |
+| 5 | Add committee ties from recusal lists (**done 2026-11-23**, no effect found) | Hand-typed, about 16 rows a season | No |
 | 6 | Add TV (network slots from CFBD, then Sports Media Watch audiences) | CFBD media and venues tools | `endpoints.py` change **approved**. Still send a note to Sports Media Watch before collecting |
 
 Steps 1 and 2 cost nothing and would show within a day of work whether there is a signal worth chasing.

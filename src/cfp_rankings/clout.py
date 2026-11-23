@@ -83,6 +83,8 @@ class Row:
     tv: float = float("nan")  # games on free broadcast TV (ABC, CBS, FOX, NBC)
     tv_national: float = float("nan")  # games on broadcast or main cable (adds ESPN, ESPN2, FS1)
     crowd: float = float("nan")  # average home crowd, in units of 10,000 fans
+    tie: bool = False  # a committee member is recused from this school this season
+    league_ties: int = 0  # committee members recused from OTHER schools in this team's conference
 
 
 def conferences(year: int, raw_dir: Path = RAW_DIR) -> dict[str, str]:
@@ -103,6 +105,33 @@ def brand_scores(final_polls: dict[int, dict[str, int]], season: int) -> dict[st
         for team, rank in final_polls[y].items():
             out[team] = out.get(team, 0.0) + (26 - min(rank, 26)) / 25 / len(years)
     return out
+
+
+TIES_FILE = Path(__file__).with_name("committee_ties.json")
+
+
+def committee_ties(season: int, path: Path = TIES_FILE) -> dict[str, int]:
+    """Schools with a recused committee member that season -> how many members.
+
+    A member is recused from a school that pays them or employs close family.
+    They may not vote on that team and must leave the room when it is
+    discussed, so this measures a friend on the committee, not a vote.
+    """
+    return json.loads(path.read_text()).get(str(season), {})
+
+
+def league_tie_counts(ties: dict[str, int], conf: dict[str, str]) -> dict[str, int]:
+    """For each team, members recused from other schools in its conference.
+
+    Those members *can* vote on this team, and what is good for the league
+    is good for their own school. Independents have no league, so they get 0.
+    """
+    seats: dict[str, int] = {}
+    for school, n in ties.items():
+        league = conf.get(school)
+        if league and league != "FBS Independents":
+            seats[league] = seats.get(league, 0) + n
+    return {team: seats[league] - ties.get(team, 0) for team, league in conf.items() if league in seats}
 
 
 def title_games(year: int, title_slot: int, raw_dir: Path = RAW_DIR) -> dict[str, bool]:
@@ -169,7 +198,8 @@ def week_rows(season: Season, slot: int, priors: dict[str, dict[str, float]], br
     market = market_ratings(games).ranks(fbs)
     is_final, titles, money = titles is not None, titles or {}, money or {}
     nan = float("nan")
-    tv, tv_national, crowd = ((extra or {}).get(k, {}) for k in ("tv", "tv_national", "crowd"))
+    tv, tv_national, crowd, ties, league_ties = (
+        (extra or {}).get(k, {}) for k in ("tv", "tv_national", "crowd", "tie", "league_ties"))
     losses: dict[str, int] = {}
     for g in games:
         if g.loser:
@@ -180,7 +210,8 @@ def week_rows(season: Season, slot: int, priors: dict[str, dict[str, float]], br
         Row(season.year, slot, t, _capped(cfp_rank, t), _capped(ap_rank, t), _capped(resume, t), _capped(power, t),
             _capped(blend, t), losses.get(t, 0), brand.get(t, 0.0), is_power(conf, t), _capped(market, t),
             is_final, titles.get(t) is True, titles.get(t) is False, money.get(t, nan),
-            tv.get(t, nan), tv_national.get(t, nan), crowd.get(t, nan))
+            tv.get(t, nan), tv_national.get(t, nan), crowd.get(t, nan),
+            ties.get(t, 0) > 0, int(league_ties.get(t, 0)))
         for t in sorted(teams)
     ]
 
@@ -248,6 +279,9 @@ def build(first_season: int = 2005, raw_dir: Path = RAW_DIR) -> Study:
                 "tv_national": tv_scores(year, raw_dir, field="national"),
                 "crowd": {t: f["attendance"] / 10_000 for t, f in fan_base(year, raw_dir).items() if "attendance" in f},
             }
+            ties = committee_ties(year)
+            extra["tie"] = ties
+            extra["league_ties"] = league_tie_counts(ties, conf)
             season_rows: list[Row] = []
             for slot in slots:
                 titles = title_games(year, slot - 1, raw_dir) if slot == max(slots) else None
@@ -448,6 +482,42 @@ def tv_table(rows: list[Row], measure: str, y, controls=()) -> dict[str, tuple[f
     return out
 
 
+def tie_tables(rows: list[Row], y, controls=()) -> dict[str, tuple[float, float, float]]:
+    """A friend on the committee, and league-mates on it, with league held fixed."""
+    e = effect(rows, y, controls, factors=("tie", "league_ties", "power_conf", "brand"))
+    power = [r for r in rows if r.power_conf]
+    inside = effect(power, y, controls, factors=("tie", "league_ties", "brand"))
+    return {
+        "own school has a member": e["tie"],
+        "per league-mate on the committee": e["league_ties"],
+        "league, ties held fixed": e["power_conf"],
+        "own school, power conferences only": inside["tie"],
+        "per league-mate, power conferences only": inside["league_ties"],
+    }
+
+
+def same_school_change(rows: list[Row], y) -> tuple[float, float, float, int]:
+    """Schools seen both with and without a member: their gap with, minus without.
+
+    The cleanest comparison available, because the school stays the same and
+    only the seat on the committee changes. Returns the average change with a
+    95% range (resampling schools) and the number of schools.
+    """
+    by: dict[str, dict[bool, dict[int, list[float]]]] = {}
+    for r in rows:
+        by.setdefault(r.team, {True: {}, False: {}})[r.tie].setdefault(r.season, []).append(y(r))
+    diffs = []
+    for groups in by.values():
+        if groups[True] and groups[False]:
+            season_mean = {flag: np.mean([np.mean(v) for v in groups[flag].values()]) for flag in (True, False)}
+            diffs.append(season_mean[True] - season_mean[False])
+    d = np.array(diffs)
+    rng = np.random.default_rng(0)
+    means = [d[rng.integers(0, len(d), len(d))].mean() for _ in range(2000)]
+    lo, hi = np.percentile(means, [2.5, 97.5])
+    return float(d.mean()), float(lo), float(hi), len(d)
+
+
 def border_zone(rows: list[Row]) -> tuple[float, float, list[Row]]:
     """The money range where both kinds of school exist.
 
@@ -527,6 +597,20 @@ def main() -> None:
             print(f"    {name}")
             for label, e in tv_table(rows, measure, y, controls).items():
                 print(f"      {label:26s} {_fmt(e)}")
+
+    print("\nCOMMITTEE TIES")
+    tied = {(r.season, r.team) for r in rows if r.tie}
+    print(f"  {len(tied)} of {team_seasons(rows)} team-seasons had a recused member. League-mates on the committee: "
+          f"power conference median {np.median([r.league_ties for r in rows if r.power_conf]):.0f}, "
+          f"others {np.median([r.league_ties for r in rows if not r.power_conf]):.0f}")
+    for name, (y, controls) in TV_TESTS.items():
+        print(f"    {name}")
+        for label, e in tie_tables(rows, y, controls).items():
+            print(f"      {label:40s} {_fmt(e)}")
+    for name, y in (("Committee vs AP", lambda r: r.ap - r.cfp), ("Committee vs résumé rank", lambda r: r.resume - r.cfp),
+                    ("AP voters vs résumé rank", lambda r: r.resume - r.ap)):
+        m, lo, hi, n = same_school_change(rows, y)
+        print(f"  Same school, with a member minus without ({n} schools), {name}: {_fmt((m, lo, hi))}")
 
     known_money = with_money(rows)
     if not known_money:
