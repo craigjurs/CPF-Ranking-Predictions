@@ -14,6 +14,7 @@ This repo is public and is worked on by AI agents, so it ships with a security h
 
 - Core data pulled for 2000 to 2025 and stored as point-in-time snapshots. Modeling uses 2005 onward, without 2020.
 - Naive baselines and a walk-forward backtest are in place. Results and a plain-language walkthrough: [docs/baseline-results.md](docs/baseline-results.md)
+- **CFP model (Stage 3).** Predicts the committee's ranking from last week's committee ranking, this week's AP and Coaches polls, and the committee's measured tastes. Beats the baselines in every test season: [docs/cfp-model-results.md](docs/cfp-model-results.md)
 - **Clout study.** Does a famous name or a big league buy a better CFP ranking than results justify, and was the committee right? Also measures the conference championship bump, and separates league from school money using federal finance data. Results: [docs/clout-step-1-results.md](docs/clout-step-1-results.md)
 - Running list of ideas to try next (news, pundits, recruiting, markets and more): [docs/IDEAS.md](docs/IDEAS.md)
 
@@ -24,6 +25,7 @@ uv run python -m cfp_rankings.pull       # fetch anything not cached yet (throug
 uv run python -m cfp_rankings.power      # Stage 1 check: how often does the rating pick the winner?
 uv run python -m cfp_rankings.backtest   # score the baselines and the Stage 2 model (about 15 minutes)
 uv run python -m cfp_rankings.backtest --baselines-only   # baselines only (seconds)
+uv run python -m cfp_rankings.cfp_model  # Stage 3: the CFP committee model against the baselines
 uv run python -m cfp_rankings.clout      # clout study: committee rank against on-field results
 uv run --extra dev python -m pytest -q   # pipeline tests
 ```
@@ -31,7 +33,7 @@ uv run --extra dev python -m pytest -q   # pipeline tests
 ## Layout
 
 ```
-src/cfp_rankings/     Data pull, snapshots, baselines, power rating, poll model, metrics, backtest
+src/cfp_rankings/     Data pull, snapshots, baselines, power rating, poll model, CFP model, clout study, metrics, backtest
 tests/pipeline/       Tests for the above (no network needed)
 data/raw/             Cached CFBD pulls and federal EADA finance files (gitignored)
 mcp_servers/cfbd/     Read-only CFBD MCP server (holds the key so agents don't)
