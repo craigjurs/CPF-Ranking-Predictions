@@ -181,8 +181,17 @@ Even if the answer to "is it biased?" turns out to be "a little", these same mea
 
 Steps 1 and 2 cost nothing and would show within a day of work whether there is a signal worth chasing.
 
-## Open questions for you
+## Decisions so far
 
-1. **Which poll is the main target?** I assumed the CFP committee is the one you care about most, with AP and Coaches as the comparison group.
-2. **Is the pattern enough, or do you want the "which factor" answer?** The first is very doable. The second may not be answerable with this much data.
-3. **OK to add the CFBD media and venues tools** when we reach step 6?
+Answered by Sammy on 2026-11-22.
+
+| Question | Answer |
+|---|---|
+| Which ranking is the main target? | **The CFP committee.** AP and Coaches are the comparison group |
+| Is "does clout matter?" enough, or do we need "which factor?" | **"Does clout matter?" is enough for now.** The combined clout score is the main test. The factor-by-factor split is a later extra |
+
+What "does clout matter?" will produce is not a bare yes or no. It is a size with a margin of error, for example "a high-clout team is ranked about 1.2 spots higher than its results justify, give or take 0.5". The yes or no falls out of that: if the range sits clearly away from zero, the answer is yes. The clout score itself is also a sliding scale and not a 0 or 1 label, so a mid-sized program sits between Ohio State and a small school.
+
+## Still open
+
+- **Adding the CFBD media and venues tools** for step 6 (TV). Not approved yet. It means a change to `endpoints.py`, so it waits for Sammy's OK.
