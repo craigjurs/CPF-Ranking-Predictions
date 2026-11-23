@@ -24,6 +24,13 @@ It covers two ideas from the ideas list:
 2. Run a one-season GDELT pilot to see if news volume and tone explain anything the baseline model misses.
 3. Only if the pilot shows signal, backfill GDELT to 2015 and consider Google Trends for the older seasons.
 
+## Decisions (2026-11-22)
+
+Sammy decided the two open questions this research raised:
+
+- **Team-level news counts are acceptable under the PII policy**, as long as no player names are stored. Option B below is approved. Option C (per-player records) stays off the table.
+- **Add a CFBD player-stats endpoint to the MCP allowlist.** The exact edit is in "The allowlist edit" below.
+
 ## An analogy for what we are trying to measure
 
 Our current data is the **scoreboard**: who won, by how much, against whom. News is the **weather report around the stadium**. Voters are people, and people are swayed by the mood around a team, not only by the score.
@@ -92,7 +99,7 @@ It has no tone at all, only attention. Worth trying only if the GDELT pilot show
 | Option | What is stored | Policy change needed? |
 |---|---|---|
 | **A. Team-level flags from CFBD box scores** | "Starting QB changed: yes/no" per team and week | No |
-| **B. Team-level news counts from GDELT** | "Articles this week mentioning Team X plus an arrest or suspension theme: 7". No names | Probably not, since no player data is stored. Sammy should confirm, because it is still news-derived |
+| **B. Team-level news counts from GDELT** | "Articles this week mentioning Team X plus an arrest or suspension theme: 7". No names | No. Approved by Sammy on 2026-11-22 |
 | **C. Per-player incident records** | Named player, incident type, date | **Yes**, rules 1 and 2 would have to change |
 
 **Recommendation: do A, pilot B, and don't do C.** Beyond policy, C has practical problems: an arrest is an accusation, not a finding; many are later dismissed; some players are minors; and the labels would have to be collected by hand or by an unreliable scraper.
@@ -118,7 +125,28 @@ Two to three seasons, for some conferences, for conference games only, is far to
 
 This flag is known by Saturday night, before the Sunday poll, so there is no leakage. The output is a yes/no per team and week, with no player names stored.
 
-One setup step is needed: the CFBD MCP server currently allows only games, rankings, lines, records, teams, calendar and ratings. Adding a player-stats endpoint means editing `mcp_servers/cfbd/src/cfbd_mcp/endpoints.py`, which is part of the security harness, so **Sammy has to make that change**. Per-game player pulls also use more quota than team pulls, so plan them by week and conference.
+One setup step is needed: the CFBD MCP server currently allows only games, rankings, lines, records, teams, calendar and ratings. Per-game player pulls also use more quota than team pulls, so plan them by week and conference.
+
+#### The allowlist edit
+
+`mcp_servers/cfbd/src/cfbd_mcp/endpoints.py` is part of the security harness, so agents don't edit it. Add this entry to the `ENDPOINTS` dictionary, after `"elo_ratings"`:
+
+```python
+    "game_player_stats": Endpoint(
+        "/games/players",
+        {
+            "year": ("year", _year),
+            "week": ("week", _week),
+            "season_type": ("seasonType", _season_type),
+            "team": ("team", _name),
+            "conference": ("conference", _name),
+        },
+    ),
+```
+
+It reuses the validators already in the file, so it adds one menu item and nothing else. The path `/games/players` is CFBD's per-game player box score route as best remembered. Confirm it against the CFBD docs before merging. CFBD expects `year` plus at least one of `week`, `team` or `conference` on this route.
+
+Once that is merged, an agent can add the matching `get_game_player_stats` tool in `server.py` (not a harness file) with a test, and then build the flag.
 
 ### Arrests, conflicts and domestic issues
 
