@@ -120,7 +120,7 @@ class PollRanker:
         predict(snapshot)  return teams, best first
     """
 
-    def __init__(self, trees: int = 600, seeds: tuple[int, ...] = (0, 1, 2)):
+    def __init__(self, trees: int = 600, seeds: tuple[int, ...] = (0, 1, 2), cache: dict | None = None):
         self.trees = trees
         # A small committee instead of one judge: the same model is trained
         # once per seed, each seeing a slightly different random sample of the
@@ -129,7 +129,9 @@ class PollRanker:
         self.name = "Stage 2: learned ranker"
         self.history = History()
         self.models: list[lgb.Booster] = []
-        self._ratings_cache: dict = {}
+        # Scouting cards already written. Share one dict between models (as
+        # the backtest does) and no card is ever built twice.
+        self._ratings_cache: dict = cache if cache is not None else {}
 
     def fit(self, examples: list[Example]) -> None:
         self.history = History()

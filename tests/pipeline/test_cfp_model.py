@@ -76,3 +76,22 @@ def test_inputs_cannot_see_the_ranking_being_predicted(season, raw_dir):
     teams, X = build_rows(snap, History(), raw_dir)
     assert X.shape == (len(teams), len(FEATURES))
     assert "Team 26" in teams  # ranked by AP this week, so a candidate
+
+
+def test_editor_studies_only_earlier_seasons(season, raw_dir):
+    from dataclasses import replace
+
+    from cfp_rankings.backtest import examples
+
+    # The made-up season, relabelled as an earlier year, is the editor's study material.
+    earlier = [(replace(snap, season=2098), actual) for snap, actual in examples(season, "ap")]
+    model = CfpRanker(earlier, raw_dir=raw_dir, editor_trees=5)
+    assert model._editor(2098) is None  # nothing before 2098 to study
+    assert model._editor(2099) is not None
+    polls = (*season.snapshot("cfp", 2).polls, season.release("cfp", 2))
+    later = Snapshot(2099, "cfp", 3, season.snapshot("cfp", 2).games, polls)
+    edited = model._edited(later)
+    assert sorted(edited.values()) == list(range(1, len(edited) + 1))
+    assert model._edited(season.snapshot("cfp", 2)) is None  # first week: no committee ranking to edit
+    teams, X = build_rows(later, History(), raw_dir, edited)
+    assert X[teams.index("Team 01"), FEATURES.index("edited")] == min(edited["Team 01"], 30)

@@ -24,6 +24,26 @@ weight per input, ten weights in all by default. It still learns from pairs
 
 Before it has any past committee season to study (2014), it falls back to a
 simple rule: last week's committee ranking, moved the way AP voters moved.
+
+The editor (added in round two)
+-------------------------------
+The committee has published 54 rankings. AP voters have published hundreds,
+and Stage 2 has learned from them how a ballot gets edited after a week of
+football. Editing a ballot is much the same craft whoever holds the pen. So
+we hand the Stage 2 AP model *last week's committee ranking* and ask: "if
+this were your ballot, how would you edit it after this week's games?" Its
+answer, the ``edited`` input, is a sharper version of the simple rule.
+
+Analogy: a new restaurant critic has written only 54 reviews, too few to
+learn their habits from scratch. But you have read thousands of reviews by
+other critics, and all critics react to a burnt steak in roughly the same
+way. So you borrow the general habits from the crowd and spend the 54
+reviews learning only what makes this critic different.
+
+The editor that helps predict season Y has studied AP polls from seasons
+before Y only, both when Y is a season being learned from and when it is the
+season being predicted. So it is never asked about a week it has already
+seen the answer to.
 """
 
 from __future__ import annotations
@@ -32,6 +52,7 @@ import numpy as np
 
 from cfp_rankings.clout import conferences, is_power, title_games
 from cfp_rankings.features import History
+from cfp_rankings.poll_model import PollRanker
 from cfp_rankings.power import POWER, RESUME, fit_ratings
 from cfp_rankings.snapshots import RAW_DIR, PollRelease, Snapshot
 
@@ -44,11 +65,12 @@ BASE = ["carried", "ap", "coaches", "prev_cfp", "prev_offset"]
 TASTES = ["power_conf", "brand", "losses", "resume_rank", "power_rank"]
 TITLES = ["champion", "runner_up"]
 FIRST_WEEK = [f"first_week_{name}" for name in TASTES]
-FEATURES = BASE + TASTES + TITLES + FIRST_WEEK
+EDITOR = ["edited"]
+FEATURES = BASE + TASTES + TITLES + FIRST_WEEK + EDITOR
 # What the model uses by default. The committee's tastes are applied in the
 # first week only: after that, last week's committee ranking already contains
 # them, and adding them again did not help in testing (see docs/cfp-model-results.md).
-DEFAULT = BASE + FIRST_WEEK
+DEFAULT = BASE + FIRST_WEEK + EDITOR
 
 
 def _rank(rank_of: dict[str, int], team: str) -> float:
@@ -86,8 +108,12 @@ class CarryForward:
         return sorted(order, key=lambda t: (order[t], _rank(ap, t), t))[:25]
 
 
-def build_rows(snap: Snapshot, history: History, raw_dir=RAW_DIR):
-    """``(teams, X)``: the candidates and one row of inputs each, or None."""
+def build_rows(snap: Snapshot, history: History, raw_dir=RAW_DIR, edited: dict[str, int] | None = None):
+    """``(teams, X)``: the candidates and one row of inputs each, or None.
+
+    ``edited`` is the editor's ranking (team -> place), when there is one. In
+    the first week, or with no editor, that input repeats the simple rule.
+    """
     ap_release, coaches_release = snap.latest("ap"), snap.latest("coaches")
     if ap_release is None:
         return None
@@ -137,6 +163,7 @@ def build_rows(snap: Snapshot, history: History, raw_dir=RAW_DIR):
             1.0 if titles.get(t) is True else 0.0,
             1.0 if titles.get(t) is False else 0.0,
             *(x if first_week else 0.0 for x in tastes),
+            carried.get(t, OUT) if edited is None else float(min(edited.get(t, OUT), OUT)),
         ])
     return teams, np.array(rows, dtype=float)
 
@@ -174,19 +201,47 @@ class CfpRanker:
 
     name = "Stage 3: CFP model"
 
-    def __init__(self, background: list[Example], ridge: float = 10.0, use: list[str] | None = None, raw_dir=RAW_DIR):
+    def __init__(self, background: list[Example], ridge: float = 10.0, use: list[str] | None = None, raw_dir=RAW_DIR,
+                 editor_trees: int = 600, cache: dict | None = None):
+        self.background = background
         self.history = History()
         self.history.learn(background)
         self.ridge = ridge
         self.columns = [FEATURES.index(f) for f in (use or DEFAULT)]
         self.raw_dir = raw_dir
+        self.editor_trees = editor_trees
+        # Trained editors and scouting cards. Share one dict between models
+        # (as the backtest does) so each editor is trained only once.
+        self.cache: dict = cache if cache is not None else {}
         self.scale: np.ndarray | None = None
         self.weights: np.ndarray | None = None
+
+    def _editor(self, season: int) -> PollRanker | None:
+        """The Stage 2 AP model that has studied only seasons before ``season``."""
+        key = ("editor", season, self.editor_trees)
+        if key not in self.cache:
+            earlier = [ex for ex in self.background if ex[0].season < season]
+            editor = None
+            if earlier:
+                editor = PollRanker(trees=self.editor_trees, cache=self.cache)
+                editor.fit(earlier)
+            self.cache[key] = editor if editor is not None and editor.models else None
+        return self.cache[key]
+
+    def _edited(self, snap: Snapshot) -> dict[str, int] | None:
+        """Last week's committee ranking, edited the way AP voters edit theirs."""
+        if FEATURES.index("edited") not in self.columns or snap.latest("cfp", before_slot=snap.slot) is None:
+            return None
+        editor = self._editor(snap.season)
+        scores = editor.scores(snap) if editor else None
+        if scores is None:
+            return None
+        return {t: i + 1 for i, t in enumerate(sorted(scores, key=lambda t: (-scores[t], t)))}
 
     def fit(self, examples: list[Example]) -> None:
         tables, ranks = [], []
         for snap, actual in examples:
-            built = build_rows(snap, self.history, self.raw_dir)
+            built = build_rows(snap, self.history, self.raw_dir, self._edited(snap))
             if built is None:
                 continue
             teams, X = built
@@ -201,7 +256,7 @@ class CfpRanker:
     def predict(self, snap: Snapshot) -> list[str] | None:
         if self.weights is None:
             return CarryForward().predict(snap)
-        built = build_rows(snap, self.history, self.raw_dir)
+        built = build_rows(snap, self.history, self.raw_dir, self._edited(snap))
         if built is None:
             return None
         teams, X = built
@@ -219,8 +274,9 @@ class CfpRanker:
 # ---------- report ----------
 VARIANTS = {
     "Stage 3: CFP model": DEFAULT,
-    "  without the first-week tastes": BASE,
-    "  tastes in every week": BASE + TASTES + FIRST_WEEK,
+    "  without the editor (round one)": BASE + FIRST_WEEK,
+    "  without the first-week tastes": BASE + EDITOR,
+    "  tastes in every week": BASE + TASTES + FIRST_WEEK + EDITOR,
     "  plus title-game results": DEFAULT + TITLES,
     "  everything": FEATURES,
 }
@@ -237,8 +293,9 @@ def main() -> None:
     test = [y for y in DEV_SEASONS if seasons[y].releases("cfp")]
     menu = {"Copy this week's AP": lambda: CopyPoll("ap"), "Win/loss rule (the bar)": lambda: WinLossRule(fallback="ap"),
             CarryForward.name: CarryForward}
+    cache: dict = {}
     for name, use in VARIANTS.items():
-        menu[name] = lambda use=use: CfpRanker(background, use=use)
+        menu[name] = lambda use=use: CfpRanker(background, use=use, cache=cache)
     results = {}
     for name, make in menu.items():
         rows = walk_forward(seasons, "cfp", make, test)
@@ -264,7 +321,7 @@ def main() -> None:
     worse = sum(m["avg_miss"] > b["avg_miss"] for b, m in zip(bar, model))
     print(f"  rankings where the model beat the bar: {better} of {len(bar)}, worse in {worse}")
 
-    final = CfpRanker(background)
+    final = CfpRanker(background, cache=cache)
     final.fit([ex for y in test for ex in examples(seasons[y], "cfp")])
     print("\nWeights, studied on every season. Positive: a higher value of the input moves a team UP.")
     print("(Rank inputs are negative because a bigger rank number is a worse rank.)")

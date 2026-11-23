@@ -1,5 +1,7 @@
 # Stage 3: predicting the CFP committee's ranking
 
+> **Update.** A second round added the "editor" input and brought the average miss from 1.14 to 1.08. See [round-2-results.md](round-2-results.md). The numbers below are round one's.
+
 This is the CFP correction model from the [ideas list](IDEAS.md), built on what the [clout study](clout-step-1-results.md) learned about the committee. Code: `src/cfp_rankings/cfp_model.py`.
 
 ## The one-paragraph version
@@ -128,5 +130,5 @@ The "losses" weight looks odd at first. It does not mean the committee likes los
 
 ```sh
 uv run python -m cfp_rankings.cfp_model   # every table above (about a minute)
-uv run python -m cfp_rankings.backtest    # all three stages together (about 15 minutes)
+uv run python -m cfp_rankings.backtest    # all three stages together (about 9 minutes)
 ```

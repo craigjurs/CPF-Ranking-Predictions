@@ -66,8 +66,12 @@ def walk_forward(seasons: dict[int, Season], poll: str, make_model, test_seasons
     return rows
 
 
-def model_menu(poll: str, baselines_only: bool = False) -> list:
-    """Factories for the models that make sense for each poll."""
+def model_menu(poll: str, baselines_only: bool = False, cache: dict | None = None) -> list:
+    """Factories for the models that make sense for each poll.
+
+    ``cache`` is shared by every learned model so that scouting cards and
+    Stage 3's editors are built once, not once per test season.
+    """
     if poll == "cfp":
         # The first CFP ranking of a season has no "last week", so the
         # carry-forward models start from that Sunday's AP poll.
@@ -82,14 +86,15 @@ def model_menu(poll: str, baselines_only: bool = False) -> list:
         # Imported here so the baselines still run without numpy or LightGBM.
         from cfp_rankings.poll_model import PollRanker
 
-        menu.append(lambda: PollRanker())
+        menu.append(lambda: PollRanker(cache=cache))
     return menu
 
 
 def run(seasons: dict[int, Season], test_seasons, baselines_only: bool = False) -> list[dict]:
     rows = []
+    cache: dict = {}
     for poll in ("ap", "coaches", "cfp"):
-        menu = model_menu(poll, baselines_only)
+        menu = model_menu(poll, baselines_only, cache)
         if poll == "cfp" and not baselines_only:
             # Imported here so the baselines still run without numpy.
             from cfp_rankings.cfp_model import CarryForward, CfpRanker
@@ -97,7 +102,7 @@ def run(seasons: dict[int, Season], test_seasons, baselines_only: bool = False) 
             # AP history for every season, used only for what carries over
             # between years. The model never reads a season it is predicting.
             background = [ex for y in sorted(seasons) for ex in examples(seasons[y], "ap")]
-            menu += [CarryForward, lambda: CfpRanker(background)]
+            menu += [CarryForward, lambda: CfpRanker(background, cache=cache)]
         for make_model in menu:
             rows += walk_forward(seasons, poll, make_model, test_seasons)
     return rows
