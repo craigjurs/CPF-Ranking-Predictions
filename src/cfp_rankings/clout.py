@@ -49,6 +49,7 @@ from pathlib import Path
 
 import numpy as np
 
+from cfp_rankings.finance import money_scores
 from cfp_rankings.power import POWER, RESUME, Ratings, fit_ratings, next_season_prior
 from cfp_rankings.snapshots import FINAL_SLOT, RAW_DIR, Game, Season
 
@@ -76,6 +77,7 @@ class Row:
     is_final: bool = False  # the last ranking, made after the conference title games
     champion: bool = False  # won a conference title game (final ranking only)
     runner_up: bool = False  # lost a conference title game (final ranking only)
+    money: float = float("nan")  # athletic revenue in doublings above the average team; nan if unknown
 
 
 def conferences(year: int, raw_dir: Path = RAW_DIR) -> dict[str, str]:
@@ -145,7 +147,8 @@ def is_power(conf: dict[str, str], team: str) -> bool:
 
 
 def week_rows(season: Season, slot: int, priors: dict[str, dict[str, float]], brand: dict[str, float],
-              conf: dict[str, str], titles: dict[str, bool] | None = None) -> list[Row]:
+              conf: dict[str, str], titles: dict[str, bool] | None = None,
+              money: dict[str, float] | None = None) -> list[Row]:
     # ``titles`` is passed only for the final ranking, the one made after the title games.
     """Rows for one committee ranking: every team in any of the top 25s."""
     cfp, ap = season.release("cfp", slot), season.release("ap", slot)
@@ -158,7 +161,7 @@ def week_rows(season: Season, slot: int, priors: dict[str, dict[str, float]], br
     blend_order = sorted(fbs, key=lambda t: (resume[t] + power[t], resume[t]))
     blend = {t: i + 1 for i, t in enumerate(blend_order)}
     market = market_ratings(games).ranks(fbs)
-    is_final, titles = titles is not None, titles or {}
+    is_final, titles, money = titles is not None, titles or {}, money or {}
     losses: dict[str, int] = {}
     for g in games:
         if g.loser:
@@ -168,7 +171,7 @@ def week_rows(season: Season, slot: int, priors: dict[str, dict[str, float]], br
     return [
         Row(season.year, slot, t, _capped(cfp_rank, t), _capped(ap_rank, t), _capped(resume, t), _capped(power, t),
             _capped(blend, t), losses.get(t, 0), brand.get(t, 0.0), is_power(conf, t), _capped(market, t),
-            is_final, titles.get(t) is True, titles.get(t) is False)
+            is_final, titles.get(t) is True, titles.get(t) is False, money.get(t, float("nan")))
         for t in sorted(teams)
     ]
 
@@ -230,10 +233,11 @@ def build(first_season: int = 2005, raw_dir: Path = RAW_DIR) -> Study:
         if year in CFP_SEASONS:
             brand, conf = brand_scores(final_polls, year), conferences(year, raw_dir)
             slots = [rel.slot for rel in season.releases("cfp")]
+            money = money_scores(year, raw_dir) if (raw_dir / "eada").exists() else {}
             season_rows: list[Row] = []
             for slot in slots:
                 titles = title_games(year, slot - 1, raw_dir) if slot == max(slots) else None
-                season_rows += week_rows(season, slot, priors, brand, conf, titles)
+                season_rows += week_rows(season, slot, priors, brand, conf, titles, money)
             rows += season_rows
             later += later_games(season, season_rows, conf)
         final = {
@@ -389,6 +393,30 @@ def title_week_moves(rows: list[Row]) -> dict[str, dict[str, tuple[float, int]]]
     return {poll: {k: (float(np.mean(v)), len(v)) for k, v in groups.items()} for poll, groups in moves.items()}
 
 
+# ---------- money against league ----------
+MONEY_TESTS = {
+    "Committee vs AP, same team and week": (lambda r: r.ap - r.cfp, ()),
+    "Committee vs résumé rank": (lambda r: r.resume - r.cfp, ()),
+    "Committee, same résumé, power and losses": (lambda r: -r.cfp, SAME_FIELD),
+}
+
+
+def with_money(rows: list[Row]) -> list[Row]:
+    return [r for r in rows if r.money == r.money]  # drops nan
+
+
+def border_zone(rows: list[Row]) -> tuple[float, float, list[Row]]:
+    """The money range where both kinds of school exist.
+
+    From the poorest power-conference team to the richest team outside the
+    power conferences. Inside it, league differs while money is about equal.
+    """
+    known = with_money(rows)
+    low = min(r.money for r in known if r.power_conf)
+    high = max(r.money for r in known if not r.power_conf)
+    return low, high, [r for r in known if low <= r.money <= high]
+
+
 def _fmt(e: tuple[float, float, float]) -> str:
     return f"{e[0]:+5.2f} ({e[1]:+5.2f} to {e[2]:+5.2f})"
 
@@ -442,6 +470,34 @@ def main() -> None:
               f"runner-up {_fmt(e['runner_up'])}, power conference {_fmt(e['power_conf'])}")
     e = effect(final, lambda r: r.ap - r.cfp, factors=("champion", "runner_up", "power_conf", "brand"))
     print(f"  Committee vs AP: champion {_fmt(e['champion'])}, power conference {_fmt(e['power_conf'])}")
+
+    known = with_money(rows)
+    if not known:
+        print("\nMONEY: no EADA files found. Run: uv run --extra finance python -m cfp_rankings.finance")
+        return
+    by_team = {(r.season, r.team): r for r in known}
+    rich = [r.money for r in by_team.values() if r.power_conf]
+    poor = [r.money for r in by_team.values() if not r.power_conf]
+    print(f"\nMONEY AGAINST LEAGUE ({team_seasons(known)} team-seasons with finance data)")
+    print(f"  Typical athletic revenue against the average team: power conference x{2 ** np.median(rich):.2f}, "
+          f"others x{2 ** np.median(poor):.2f}")
+    print("  Extra spots per doubling of revenue, and for league, with a 95% range")
+    for name, (y, controls) in MONEY_TESTS.items():
+        alone = effect(known, y, controls, factors=("money",))["money"]
+        joint = effect(known, y, controls, factors=("money", "power_conf", "brand"))
+        inside = {label: effect([r for r in known if r.power_conf == flag], y, controls, factors=("money", "brand"))["money"]
+                  for label, flag in (("power", True), ("other", False))}
+        print(f"  {name}")
+        print(f"    money on its own               {_fmt(alone)}")
+        print(f"    money, league held fixed       {_fmt(joint['money'])}")
+        print(f"    league, money held fixed       {_fmt(joint['power_conf'])}")
+        print(f"    money inside power conferences {_fmt(inside['power'])}")
+        print(f"    money inside other leagues     {_fmt(inside['other'])}")
+    low, high, zone = border_zone(rows)
+    # With so few teams in the zone there is nothing to test, so only the count is reported.
+    print(f"  Border zone (revenue x{2 ** low:.2f} to x{2 ** high:.2f} of average): "
+          f"{team_seasons([r for r in zone if r.power_conf])} power-conference and "
+          f"{team_seasons([r for r in zone if not r.power_conf])} other team-seasons")
 
 
 if __name__ == "__main__":
