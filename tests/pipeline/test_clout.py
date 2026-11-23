@@ -1,3 +1,4 @@
+import pytest
 """The clout study: the gap between a ranking and on-field results."""
 
 import numpy as np
@@ -110,3 +111,26 @@ def test_market_rating_follows_the_spread_not_the_score():
     game = Game(1, 2099, 1, when, "Favorite", "Underdog", 0, 30, True, True, True, spread_home=-14.0)
     ratings = market_ratings([game])
     assert ratings.of("Favorite") > ratings.of("Underdog")
+
+
+def test_tv_table_separates_tv_from_league():
+    # League is worth 4 spots and TV nothing, but power teams are on TV more, so TV alone looks good.
+    import random
+
+    from cfp_rankings.clout import known, tv_table
+
+    rng = random.Random(1)
+    rows = []
+    for i in range(120):
+        power = i % 2 == 0
+        tv = rng.uniform(2, 8) if power else rng.uniform(0, 3)
+        resume = rng.randint(5, 22)
+        cfp = resume - (4 if power else 0)
+        rows.append(Row(2014 + i % 5, 10, f"T{i}", cfp, cfp, resume, resume, resume, 0, 0.0, power, tv=tv))
+    rows.append(Row(2014, 10, "No history", 9, 9, 9, 9, 9, 0, 0.0, False))  # a team with no TV score
+    assert len(known(rows, "tv")) == 120
+    table = tv_table(rows, "tv", lambda r: r.resume - r.cfp)
+    assert table["alone"][0] > 0.3
+    assert abs(table["league fixed"][0]) < 0.05
+    assert table["league, measure fixed"][0] == pytest.approx(4, abs=0.2)
+    assert "league and money fixed" not in table  # no finance data in these rows

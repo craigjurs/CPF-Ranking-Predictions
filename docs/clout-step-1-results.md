@@ -1,10 +1,10 @@
 # Clout study: does the name or the league buy a better ranking?
 
-Results so far for the plan in [research/money-and-politics-in-rankings.md](research/money-and-politics-in-rankings.md): step 1 (the gap), step 4 (the acid test), a look at conference championships, and step 3 (school money). Everything except the money section uses only data we already had. Code: `src/cfp_rankings/clout.py`.
+Results so far for the plan in [research/money-and-politics-in-rankings.md](research/money-and-politics-in-rankings.md): step 1 (the gap), step 4 (the acid test), a look at conference championships, step 3 (school money) and step 6 (TV exposure and crowd size). Everything except the money and TV sections uses only data we already had. Code: `src/cfp_rankings/clout.py`.
 
 ## The one-paragraph version
 
-**The famous name does not seem to buy anything. The league does.** After allowing for what teams did on the field, programs with a strong recent brand were not ranked higher by the CFP committee. But teams from the five power conferences were: for the same team in the same week, **the committee ranked power-conference teams about 2 spots more favorably than the AP voters did, relative to everyone else.** That held in all nine seasons tested. The acid test asked whether the committee was right to do that. **There are too few games to settle it, but nothing in them says the committee was right:** ranked small-league teams won 15 of their 26 later games against power-conference teams. Conference championships matter, but modestly: about one extra spot beyond the win itself, and the committee treats them the same way AP voters do. And when money is added, **it is the league badge that counts, not the bank balance**: once we know a team's league, knowing how rich the school is tells us nothing more.
+**The famous name does not seem to buy anything. The league does.** After allowing for what teams did on the field, programs with a strong recent brand were not ranked higher by the CFP committee. But teams from the five power conferences were: for the same team in the same week, **the committee ranked power-conference teams about 2 spots more favorably than the AP voters did, relative to everyone else.** That held in all nine seasons tested. The acid test asked whether the committee was right to do that. **There are too few games to settle it, but nothing in them says the committee was right:** ranked small-league teams won 15 of their 26 later games against power-conference teams. Conference championships matter, but modestly: about one extra spot beyond the win itself, and the committee treats them the same way AP voters do. And when money is added, **it is the league badge that counts, not the bank balance**: once we know a team's league, knowing how rich the school is tells us nothing more. **TV exposure tells the same story as money:** on its own it looks like it helps, and once league is held fixed the fairest TV measure shows no benefit at all.
 
 **Analogy.** Back to the gymnasts. We checked two things about the judges. Do they score a famous gymnast higher for the same routine? No sign of it. Do they score gymnasts from the big-name gyms higher than gymnasts from small gyms? Yes. The judges would say big-gym gymnasts face tougher competition every week, so the same routine *means* more. The acid test is sending both to the same meet and seeing who wins. We only have 26 such meets, and the small-gym gymnasts held their own.
 
@@ -229,17 +229,80 @@ The way around that is **realignment**. When a school changes league (TCU and Ut
 - Raw files stay in `data/raw/eada/` and are not committed. The repo holds only the list matching each team to its federal school number.
 - Getting the files needed one new allowed website, ope.ed.gov, which Sammy approved.
 
+## TV and crowds against league
+
+The last piece of the bundle. Does being on television a lot, or filling a big stadium, buy a better ranking than results justify? The data setup is described in [tv-data-setup.md](tv-data-setup.md).
+
+**How it is measured.** Three scores per team, each a yearly average over the three seasons *before* the one being ranked, so that this year's ranking cannot cause this year's TV slots:
+
+| Score | Meaning | Typical power-conference team | Typical team from another league |
+|---|---|---|---|
+| Free broadcast games | Regular-season games on ABC, CBS, FOX or NBC | 3.2 a year | 0.2 a year |
+| National TV games | Adds ESPN, ESPN2 and FS1 | 7.7 a year | 2.8 a year |
+| Home crowd | Average announced attendance | 65,300 | 28,900 |
+
+Unlike money, all 354 team-seasons have these scores, including the service academies.
+
+### Results
+
+Extra spots per extra game a year (or per extra 10,000 fans), with the margin of error in brackets.
+
+**Committee against AP voters, same team and week.** This is the cleanest test, because the two rankings are judging the same team at the same moment.
+
+| | Free broadcast games | National TV games | Home crowd |
+|---|---|---|---|
+| On its own | +0.06 (0.00 to +0.12) | **+0.10** (+0.02 to +0.17) | **+0.15** (+0.08 to +0.23) |
+| Comparing teams in the same kind of league | -0.08 (-0.15 to -0.01) | -0.05 (-0.16 to +0.04) | +0.05 (-0.04 to +0.13) |
+| League, with that score held fixed | **+2.2** (+1.6 to +2.8) | **+2.2** (+1.6 to +2.9) | **+1.9** (+1.3 to +2.5) |
+| Among power-conference teams only | -0.07 (-0.14 to 0.00) | -0.10 (-0.20 to -0.01) | +0.02 (-0.06 to +0.11) |
+
+**Committee, same résumé, power rank and losses.**
+
+| | Free broadcast games | National TV games | Home crowd |
+|---|---|---|---|
+| On its own | **+0.26** (+0.09 to +0.45) | **+0.56** (+0.38 to +0.75) | **+0.43** (+0.24 to +0.63) |
+| Comparing teams in the same kind of league | -0.12 (-0.29 to +0.03) | **+0.27** (+0.05 to +0.47) | -0.06 (-0.25 to +0.14) |
+| League, with that score held fixed | **+6.8** (+5.6 to +8.0) | **+5.9** (+4.7 to +7.1) | **+6.7** (+5.4 to +8.0) |
+| Among power-conference teams only | -0.19 (-0.35 to -0.03) | +0.06 (-0.13 to +0.25) | -0.13 (-0.32 to +0.07) |
+
+How to read it:
+
+1. **On its own, TV looks like it matters, exactly as money did.** Teams that are on television more are ranked higher than their results justify. That is the bundle talking.
+2. **Hold the league fixed and the benefit is gone.** Among teams in the same kind of league, the team that was on free broadcast TV more often gets no better treatment. The number is even slightly below zero. To put a size on it: the most-televised power-conference teams have about six more broadcast games a year than the least-televised ones, and the data says that gap is worth somewhere between one spot *worse* and nothing.
+3. **The league effect does not move.** It is 2.0 spots with nothing else in the model, 2.6 with money held fixed and 2.2 with TV held fixed. Three different ways of measuring clout, and none of them takes anything away from the league.
+4. **Inside the power conferences, being a TV fixture does not help.** Notre Dame, Alabama and Ohio State are not ranked more generously than Wake Forest or Kansas State for the same results.
+5. **Crowd size behaves like TV.** A big stadium on its own looks helpful, and adds nothing once league is known.
+
+**Analogy.** Back to the exclusive club. We have now checked the wallet (money), how often your picture is in the paper (TV) and how many friends you bring (crowds). None of them gets a member a better table than another member. The membership card is still the only thing that does.
+
+### One loose thread
+
+The wider "national TV" count, which adds ESPN and FS1, shows a small plus even with league held fixed: about a quarter of a spot per extra game a year, when the committee is compared with on-field results. Three reasons not to lean on it:
+
+- It disappears among power-conference teams, so it comes from the smaller leagues. The small-league teams with the most national games are Boise State, BYU and Cincinnati, the same well-funded outsiders that produced the hint in the money section.
+- AP voters show the same plus (+0.27), and the committee-against-AP test shows nothing. So if it is real, it is something all rankers share and not a committee habit.
+- This section runs about fifty comparisons. A few will look meaningful by luck alone.
+
+It lines up with the money lead and is worth remembering as: **among outsiders, the ones the country has seen and heard of may be taken more seriously.** It is not established.
+
+### About the data
+
+- CFBD lists a network for about two games in three in these seasons. Streaming-only and regional games are missing, which undercounts small-league teams a little.
+- These are counts of TV slots, not of viewers. Real audience figures would need Sports Media Watch, and the plan says to ask them first.
+- TV, money and crowd size move together (see the setup notes), so "which part of the bundle" was always going to be blurry. What is clear is that none of the three adds anything to league.
+
 ## What this does and does not show
 
 - **It shows a pattern, not a motive.** The committee is consistently harder on small-league teams than AP voters are. That fits the "politics" idea, since the committee is largely made up of power-conference athletic directors. It also fits a plain football explanation: the committee weighs schedule strength more heavily, and may be right to.
 - **The acid test leans against the committee but is far too small to settle it.** Twenty-six games, nine of them true upset chances.
 - **League and money are mostly untangled, with one gap.** Within a league, money does not matter. But the two groups barely overlap in wealth, so a "minimum money to be taken seriously" story cannot be ruled out.
+- **TV exposure and crowd size add nothing beyond league.** Unlike money, the TV scores do overlap between the two groups (Boise State and BYU were on national TV more than many power-conference teams), so this result is less exposed to the "no overlap" caveat.
 - **The margin of error treats each team-season as one unit**, because the same team appears week after week with almost the same rank. There are still only nine seasons, so a few unusual years carry weight.
 
 ## What I suggest next
 
-1. **Feed what we learned into the CFP prediction model.** League, title-game result and the brand measure are now known to shape the committee's ranking in specific ways, which is exactly what the CFP correction model on the ideas list needs.
-2. **Add long-run prestige and committee ties** (steps 2 and 5), which are cheap.
+1. **Feed what we learned into the CFP prediction model.** *(Done, see [cfp-model-results.md](cfp-model-results.md).)* League, title-game result and the brand measure are now known to shape the committee's ranking in specific ways, which is exactly what the CFP correction model on the ideas list needs.
+2. **Add long-run prestige and committee ties** (steps 2 and 5), which are cheap. With money, TV and crowds now ruled out as separate forces, committee ties are the most direct remaining test of the "politics" idea.
 3. **Run the realignment test when the sealed seasons are opened.** It is the cleanest way to separate league from money, but 2024 and 2025 are also the prediction model's final exam, so opening them is Sammy's call.
 
 ## Run it yourself

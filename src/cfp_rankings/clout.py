@@ -50,6 +50,7 @@ from pathlib import Path
 import numpy as np
 
 from cfp_rankings.finance import money_scores
+from cfp_rankings.tv import fan_base, tv_scores
 from cfp_rankings.power import POWER, RESUME, Ratings, fit_ratings, next_season_prior
 from cfp_rankings.snapshots import FINAL_SLOT, RAW_DIR, Game, Season
 
@@ -78,6 +79,10 @@ class Row:
     champion: bool = False  # won a conference title game (final ranking only)
     runner_up: bool = False  # lost a conference title game (final ranking only)
     money: float = float("nan")  # athletic revenue in doublings above the average team; nan if unknown
+    # The next three are yearly averages over the three seasons before this one; nan if unknown.
+    tv: float = float("nan")  # games on free broadcast TV (ABC, CBS, FOX, NBC)
+    tv_national: float = float("nan")  # games on broadcast or main cable (adds ESPN, ESPN2, FS1)
+    crowd: float = float("nan")  # average home crowd, in units of 10,000 fans
 
 
 def conferences(year: int, raw_dir: Path = RAW_DIR) -> dict[str, str]:
@@ -148,7 +153,8 @@ def is_power(conf: dict[str, str], team: str) -> bool:
 
 def week_rows(season: Season, slot: int, priors: dict[str, dict[str, float]], brand: dict[str, float],
               conf: dict[str, str], titles: dict[str, bool] | None = None,
-              money: dict[str, float] | None = None) -> list[Row]:
+              money: dict[str, float] | None = None,
+              extra: dict[str, dict[str, float]] | None = None) -> list[Row]:
     # ``titles`` is passed only for the final ranking, the one made after the title games.
     """Rows for one committee ranking: every team in any of the top 25s."""
     cfp, ap = season.release("cfp", slot), season.release("ap", slot)
@@ -162,6 +168,8 @@ def week_rows(season: Season, slot: int, priors: dict[str, dict[str, float]], br
     blend = {t: i + 1 for i, t in enumerate(blend_order)}
     market = market_ratings(games).ranks(fbs)
     is_final, titles, money = titles is not None, titles or {}, money or {}
+    nan = float("nan")
+    tv, tv_national, crowd = ((extra or {}).get(k, {}) for k in ("tv", "tv_national", "crowd"))
     losses: dict[str, int] = {}
     for g in games:
         if g.loser:
@@ -171,7 +179,8 @@ def week_rows(season: Season, slot: int, priors: dict[str, dict[str, float]], br
     return [
         Row(season.year, slot, t, _capped(cfp_rank, t), _capped(ap_rank, t), _capped(resume, t), _capped(power, t),
             _capped(blend, t), losses.get(t, 0), brand.get(t, 0.0), is_power(conf, t), _capped(market, t),
-            is_final, titles.get(t) is True, titles.get(t) is False, money.get(t, float("nan")))
+            is_final, titles.get(t) is True, titles.get(t) is False, money.get(t, nan),
+            tv.get(t, nan), tv_national.get(t, nan), crowd.get(t, nan))
         for t in sorted(teams)
     ]
 
@@ -234,10 +243,15 @@ def build(first_season: int = 2005, raw_dir: Path = RAW_DIR) -> Study:
             brand, conf = brand_scores(final_polls, year), conferences(year, raw_dir)
             slots = [rel.slot for rel in season.releases("cfp")]
             money = money_scores(year, raw_dir) if (raw_dir / "eada").exists() else {}
+            extra = {
+                "tv": tv_scores(year, raw_dir, field="broadcast"),
+                "tv_national": tv_scores(year, raw_dir, field="national"),
+                "crowd": {t: f["attendance"] / 10_000 for t, f in fan_base(year, raw_dir).items() if "attendance" in f},
+            }
             season_rows: list[Row] = []
             for slot in slots:
                 titles = title_games(year, slot - 1, raw_dir) if slot == max(slots) else None
-                season_rows += week_rows(season, slot, priors, brand, conf, titles, money)
+                season_rows += week_rows(season, slot, priors, brand, conf, titles, money, extra)
             rows += season_rows
             later += later_games(season, season_rows, conf)
         final = {
@@ -405,6 +419,35 @@ def with_money(rows: list[Row]) -> list[Row]:
     return [r for r in rows if r.money == r.money]  # drops nan
 
 
+def known(rows: list[Row], *fields: str) -> list[Row]:
+    """Rows where every named field has a value."""
+    return [r for r in rows if all(getattr(r, f) == getattr(r, f) for f in fields)]
+
+
+TV_TESTS = {**MONEY_TESTS, "AP voters vs résumé rank": (lambda r: r.resume - r.ap, ())}
+TV_MEASURES = {
+    "tv": "per extra free-broadcast game a year",
+    "tv_national": "per extra national TV game a year",
+    "crowd": "per extra 10,000 fans at home games",
+}
+
+
+def tv_table(rows: list[Row], measure: str, y, controls=()) -> dict[str, tuple[float, float, float]]:
+    """One clout measure on its own, then against league, then against league and money."""
+    have = known(rows, measure)
+    joint = effect(have, y, controls, factors=(measure, "power_conf", "brand"))
+    funded = known(have, "money")
+    out = {
+        "alone": effect(have, y, controls, factors=(measure,))[measure],
+        "league fixed": joint[measure],
+        "league, measure fixed": joint["power_conf"],
+        "inside power conferences": effect([r for r in have if r.power_conf], y, controls, factors=(measure, "brand"))[measure],
+    }
+    if funded:
+        out["league and money fixed"] = effect(funded, y, controls, factors=(measure, "power_conf", "money", "brand"))[measure]
+    return out
+
+
 def border_zone(rows: list[Row]) -> tuple[float, float, list[Row]]:
     """The money range where both kinds of school exist.
 
@@ -471,21 +514,35 @@ def main() -> None:
     e = effect(final, lambda r: r.ap - r.cfp, factors=("champion", "runner_up", "power_conf", "brand"))
     print(f"  Committee vs AP: champion {_fmt(e['champion'])}, power conference {_fmt(e['power_conf'])}")
 
-    known = with_money(rows)
-    if not known:
+    print("\nTV AND CROWDS AGAINST LEAGUE (scores from the three seasons before each one)")
+    by = {(r.season, r.team): r for r in known(rows, "tv", "crowd")}
+    for label, flag in (("power conference", True), ("others", False)):
+        group = [r for r in by.values() if r.power_conf == flag]
+        print(f"  Typical {label} team: {np.median([r.tv for r in group]):.1f} broadcast games, "
+              f"{np.median([r.tv_national for r in group]):.1f} national games, "
+              f"{np.median([r.crowd for r in group]) * 10_000:,.0f} fans (n={len(group)})")
+    for measure, unit in TV_MEASURES.items():
+        print(f"  Extra spots {unit}, with a 95% range ({team_seasons(known(rows, measure))} team-seasons)")
+        for name, (y, controls) in TV_TESTS.items():
+            print(f"    {name}")
+            for label, e in tv_table(rows, measure, y, controls).items():
+                print(f"      {label:26s} {_fmt(e)}")
+
+    known_money = with_money(rows)
+    if not known_money:
         print("\nMONEY: no EADA files found. Run: uv run --extra finance python -m cfp_rankings.finance")
         return
-    by_team = {(r.season, r.team): r for r in known}
+    by_team = {(r.season, r.team): r for r in known_money}
     rich = [r.money for r in by_team.values() if r.power_conf]
     poor = [r.money for r in by_team.values() if not r.power_conf]
-    print(f"\nMONEY AGAINST LEAGUE ({team_seasons(known)} team-seasons with finance data)")
+    print(f"\nMONEY AGAINST LEAGUE ({team_seasons(known_money)} team-seasons with finance data)")
     print(f"  Typical athletic revenue against the average team: power conference x{2 ** np.median(rich):.2f}, "
           f"others x{2 ** np.median(poor):.2f}")
     print("  Extra spots per doubling of revenue, and for league, with a 95% range")
     for name, (y, controls) in MONEY_TESTS.items():
-        alone = effect(known, y, controls, factors=("money",))["money"]
-        joint = effect(known, y, controls, factors=("money", "power_conf", "brand"))
-        inside = {label: effect([r for r in known if r.power_conf == flag], y, controls, factors=("money", "brand"))["money"]
+        alone = effect(known_money, y, controls, factors=("money",))["money"]
+        joint = effect(known_money, y, controls, factors=("money", "power_conf", "brand"))
+        inside = {label: effect([r for r in known_money if r.power_conf == flag], y, controls, factors=("money", "brand"))["money"]
                   for label, flag in (("power", True), ("other", False))}
         print(f"  {name}")
         print(f"    money on its own               {_fmt(alone)}")
