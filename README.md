@@ -14,7 +14,7 @@ This repo is public and is worked on by AI agents, so it ships with a security h
 
 - Core data pulled for 2000 to 2025 and stored as point-in-time snapshots. Modeling uses 2005 onward, without 2020.
 - Naive baselines and a walk-forward backtest are in place. Results and a plain-language walkthrough: [docs/baseline-results.md](docs/baseline-results.md)
-- **Clout study.** Does a famous name or a big league buy a better CFP ranking than results justify, and was the committee right? Also measures the conference championship bump. Results: [docs/clout-step-1-results.md](docs/clout-step-1-results.md)
+- **Clout study.** Does a famous name or a big league buy a better CFP ranking than results justify, and was the committee right? Also measures the conference championship bump, and separates league from school money using federal finance data. Results: [docs/clout-step-1-results.md](docs/clout-step-1-results.md)
 - Running list of ideas to try next (news, pundits, recruiting, markets and more): [docs/IDEAS.md](docs/IDEAS.md)
 
 - **First real model.** Stage 1 is a power rating learned from scores alone. Stage 2 learns how AP and Coaches voters reorder their ballots each week, and beats the baselines in the walk-forward test. Results and walkthrough: [docs/stage-1-2-results.md](docs/stage-1-2-results.md)
@@ -33,7 +33,7 @@ uv run --extra dev python -m pytest -q   # pipeline tests
 ```
 src/cfp_rankings/     Data pull, snapshots, baselines, power rating, poll model, metrics, backtest
 tests/pipeline/       Tests for the above (no network needed)
-data/raw/             Cached CFBD pulls (gitignored)
+data/raw/             Cached CFBD pulls and federal EADA finance files (gitignored)
 mcp_servers/cfbd/     Read-only CFBD MCP server (holds the key so agents don't)
 .mcp.json             Registers that server with Claude Code
 .claude/settings.json Agent permissions, sandbox, and the guard hook

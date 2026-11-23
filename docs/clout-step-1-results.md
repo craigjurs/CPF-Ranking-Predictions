@@ -1,10 +1,10 @@
 # Clout study: does the name or the league buy a better ranking?
 
-Results so far for the plan in [research/money-and-politics-in-rankings.md](research/money-and-politics-in-rankings.md): step 1 (the gap), step 4 (the acid test) and a look at conference championships. It uses only data we already had. Code: `src/cfp_rankings/clout.py`.
+Results so far for the plan in [research/money-and-politics-in-rankings.md](research/money-and-politics-in-rankings.md): step 1 (the gap), step 4 (the acid test), a look at conference championships, and step 3 (school money). Everything except the money section uses only data we already had. Code: `src/cfp_rankings/clout.py`.
 
 ## The one-paragraph version
 
-**The famous name does not seem to buy anything. The league does.** After allowing for what teams did on the field, programs with a strong recent brand were not ranked higher by the CFP committee. But teams from the five power conferences were: for the same team in the same week, **the committee ranked power-conference teams about 2 spots more favorably than the AP voters did, relative to everyone else.** That held in all nine seasons tested. The acid test asked whether the committee was right to do that. **There are too few games to settle it, but nothing in them says the committee was right:** ranked small-league teams won 15 of their 26 later games against power-conference teams. Conference championships matter, but modestly: about one extra spot beyond the win itself, and the committee treats them the same way AP voters do.
+**The famous name does not seem to buy anything. The league does.** After allowing for what teams did on the field, programs with a strong recent brand were not ranked higher by the CFP committee. But teams from the five power conferences were: for the same team in the same week, **the committee ranked power-conference teams about 2 spots more favorably than the AP voters did, relative to everyone else.** That held in all nine seasons tested. The acid test asked whether the committee was right to do that. **There are too few games to settle it, but nothing in them says the committee was right:** ranked small-league teams won 15 of their 26 later games against power-conference teams. Conference championships matter, but modestly: about one extra spot beyond the win itself, and the committee treats them the same way AP voters do. And when money is added, **it is the league badge that counts, not the bank balance**: once we know a team's league, knowing how rich the school is tells us nothing more.
 
 **Analogy.** Back to the gymnasts. We checked two things about the judges. Do they score a famous gymnast higher for the same routine? No sign of it. Do they score gymnasts from the big-name gyms higher than gymnasts from small gyms? Yes. The judges would say big-gym gymnasts face tougher competition every week, so the same routine *means* more. The acid test is sending both to the same meet and seeing who wins. We only have 26 such meets, and the small-gym gymnasts held their own.
 
@@ -185,21 +185,66 @@ Three things stand out:
 
 One spot can still decide everything when it is the line between 4th and 5th. And the rules changed in 2024: the 12-team playoff gives the top conference champions automatic places, so championships now matter by rule and not just by judgment. That era is sealed for now.
 
+## Money against league
+
+Power-conference schools are also the rich ones, so "league" in the findings above could really have been "money" in disguise. To pull them apart I added each school's athletic department revenue from the federal EADA survey (the one free source that includes private schools such as Notre Dame, USC and Stanford). Code: `src/cfp_rankings/finance.py`.
+
+**How money is measured.** Total athletic department revenue from the year before each season, so nothing from the future leaks in. It is put on a "doublings" scale: +1 means twice the revenue of the average team in the study, -1 means half. Finance data was found for 346 of the 354 team-seasons. The three service academies do not file and are left out.
+
+The typical power-conference team has about 1.5 times the average revenue. The typical team from another league has about 0.55 times. That is a gap of nearly three to one.
+
+### Results
+
+Extra spots per doubling of revenue, with the margin of error in brackets.
+
+| | Committee against AP, same team and week | Committee, same résumé, power rank and losses |
+|---|---|---|
+| Money on its own | **+0.7** (+0.4 to +1.0) | **+2.8** (+2.2 to +3.5) |
+| Money, comparing teams in the same kind of league | -0.3 (-0.8 to +0.2) | -0.1 (-1.1 to +1.0) |
+| League, comparing teams with the same money | **+2.6** (+1.7 to +3.5) | **+6.7** (+4.9 to +8.6) |
+| Money, among power-conference teams only | -0.5 (-0.9 to 0.0) | -0.7 (-1.7 to +0.4) |
+| Money, among other leagues only | +0.2 (-1.3 to +1.7) | **+2.3** (+0.2 to +4.3) |
+
+How to read it:
+
+1. **On its own, money looks like it matters.** Richer schools are ranked higher than their results justify. This is the "bundle" effect.
+2. **Add the league and money vanishes.** Among teams in the same kind of league, a richer school gets no better treatment. The league effect does not shrink at all when money is held fixed (2.0 becomes 2.6).
+3. **Inside the power conferences, being richer does not help.** Ohio State is not treated better than Wake Forest for the same results. If anything the sign is slightly negative.
+4. **Inside the smaller leagues there is a hint that money helps.** Comparing teams with the same on-field numbers, a small-league school with twice the revenue sits about 2 spots higher. That fits the idea that the better-funded outsiders (BYU, UCF, SMU, Cincinnati) are taken more seriously than the rest. But it does not show up in the comparison with AP voters, and it rests on only 66 team-seasons, so treat it as a lead and not a finding.
+
+**Analogy.** Think of an exclusive club. What gets you the good table is the membership card, not the size of your wallet. A millionaire member and a merely comfortable member are seated the same. A wealthy non-member still waits at the bar, though perhaps a little closer to the front than the other non-members.
+
+### The big caveat: the two groups barely overlap
+
+There is almost no such thing as a rich small-league school or a poor power-conference one. The poorest power-conference team in the study still has more revenue than every small-league team except BYU. Only two small-league team-seasons (BYU in 2015 and 2021) fall inside the power-conference money range at all.
+
+So the statistics above are mostly comparing rich with richer inside one group, and poor with poorer inside the other. They can say "money does not matter within a league". They cannot fully rule out "you need a certain level of money, and every power-conference school is above it".
+
+The way around that is **realignment**. When a school changes league (TCU and Utah earlier, then Cincinnati, UCF, Houston and BYU joining the Big 12 in 2023, and SMU joining the ACC in 2024), its league changes overnight while its budget barely moves. That is the cleanest test left, and most of the useful moves fall in the sealed 2024 and 2025 seasons.
+
+### About the data
+
+- Schools have leeway in how they fill in the federal form, so the figures are a good ranking of who is rich, not audited accounts.
+- The 2020-21 year shows a COVID dip for everyone. Measuring each school against that season's average removes it.
+- Raw files stay in `data/raw/eada/` and are not committed. The repo holds only the list matching each team to its federal school number.
+- Getting the files needed one new allowed website, ope.ed.gov, which Sammy approved.
+
 ## What this does and does not show
 
 - **It shows a pattern, not a motive.** The committee is consistently harder on small-league teams than AP voters are. That fits the "politics" idea, since the committee is largely made up of power-conference athletic directors. It also fits a plain football explanation: the committee weighs schedule strength more heavily, and may be right to.
 - **The acid test leans against the committee but is far too small to settle it.** Twenty-six games, nine of them true upset chances.
-- **League and money are tangled together.** Power-conference schools are also the rich ones. This step cannot separate "league" from "wealth".
+- **League and money are mostly untangled, with one gap.** Within a league, money does not matter. But the two groups barely overlap in wealth, so a "minimum money to be taken seriously" story cannot be ruled out.
 - **The margin of error treats each team-season as one unit**, because the same team appears week after week with almost the same rank. There are still only nine seasons, so a few unusual years carry weight.
 
 ## What I suggest next
 
-1. **Add the money** (step 3: EADA finances and conference payouts). League and wealth are still tangled together. Finance data is the way to ask whether a rich school in a small league is treated like a power-conference team or like its neighbors.
-2. **Add long-run prestige** (step 2), which is cheap.
-3. **Open the 12-team era on purpose, later.** It holds the best acid-test games, but it is also the sealed test set for the prediction model, so that is a decision for Sammy and not something to do in passing.
+1. **Feed what we learned into the CFP prediction model.** League, title-game result and the brand measure are now known to shape the committee's ranking in specific ways, which is exactly what the CFP correction model on the ideas list needs.
+2. **Add long-run prestige and committee ties** (steps 2 and 5), which are cheap.
+3. **Run the realignment test when the sealed seasons are opened.** It is the cleanest way to separate league from money, but 2024 and 2025 are also the prediction model's final exam, so opening them is Sammy's call.
 
 ## Run it yourself
 
 ```sh
-uv run python -m cfp_rankings.clout   # every number above (a few seconds)
+uv run --extra finance python -m cfp_rankings.finance   # download the federal finance files (once, about 3 minutes)
+uv run python -m cfp_rankings.clout                      # every number above (under a minute)
 ```
