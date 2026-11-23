@@ -19,12 +19,12 @@ This repo is public and is worked on by AI agents, so it ships with a security h
 - **TV data.** Which network showed each game, plus stadium sizes, turned into a per-team TV exposure score built from earlier seasons. Setup notes: [docs/tv-data-setup.md](docs/tv-data-setup.md)
 - Running list of ideas to try next (news, pundits, recruiting, markets and more): [docs/IDEAS.md](docs/IDEAS.md)
 
-- **First real model.** Stage 1 is a power rating learned from scores alone. Stage 2 learns how AP and Coaches voters reorder their ballots each week, and beats the baselines in the walk-forward test. Results and walkthrough: [docs/stage-1-2-results.md](docs/stage-1-2-results.md)
+- **First real model.** Stage 1 is a power rating learned from scores alone. Stage 2 learns how AP and Coaches voters reorder their ballots each week, and beats the baselines in the walk-forward test. Results and walkthrough: [docs/stage-1-2-results.md](docs/stage-1-2-results.md). Second round of improvements: [docs/round-2-results.md](docs/round-2-results.md)
 
 ```sh
 uv run python -m cfp_rankings.pull       # fetch anything not cached yet (through the CFBD MCP server)
 uv run python -m cfp_rankings.power      # Stage 1 check: how often does the rating pick the winner?
-uv run python -m cfp_rankings.backtest   # score the baselines and the Stage 2 model (about 15 minutes)
+uv run python -m cfp_rankings.backtest   # score the baselines and the Stage 2 model (about 9 minutes)
 uv run python -m cfp_rankings.backtest --baselines-only   # baselines only (seconds)
 uv run python -m cfp_rankings.cfp_model  # Stage 3: the CFP committee model against the baselines
 uv run python -m cfp_rankings.clout      # clout study: committee rank against on-field results

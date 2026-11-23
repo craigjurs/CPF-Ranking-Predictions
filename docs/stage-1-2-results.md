@@ -1,5 +1,7 @@
 # The first real model: Stage 1 and Stage 2
 
+> **Update.** A second round added five inputs and seed averaging. AP is now 0.95 and Coaches 0.85. See [round-2-results.md](round-2-results.md). The numbers below are round one's.
+
 This is step 1 (build the model) and step 2 (settle the target) of the modeling plan. The baselines it has to beat are in [baseline-results.md](baseline-results.md).
 
 ## The one-paragraph version
@@ -178,7 +180,7 @@ Same walk-forward test as the baselines: to grade a season the model studies onl
 
 ```sh
 uv run python -m cfp_rankings.power                      # Stage 1: how often does it pick the winner?
-uv run python -m cfp_rankings.backtest                   # every table above (about 15 minutes)
+uv run python -m cfp_rankings.backtest                   # every table above (about 9 minutes)
 uv run python -m cfp_rankings.backtest --baselines-only  # just the baselines (seconds)
 uv run --extra dev python -m pytest -q                   # pipeline tests (no network)
 ```

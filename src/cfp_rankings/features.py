@@ -45,6 +45,7 @@ class History:
     def __init__(self):
         self.final_ratings: dict[int, dict[str, Ratings]] = {}
         self.final_poll: dict[int, dict[str, int]] = {}
+        self._games_seen: dict[int, int] = {}  # season -> games behind its final ratings
 
     def learn(self, examples) -> None:
         by_season: dict[int, list] = {}
@@ -53,6 +54,7 @@ class History:
         for season in sorted(by_season):
             snap, actual = max(by_season[season], key=lambda ex: ex[0].slot)
             if season not in self.final_ratings:
+                self._games_seen[season] = len(snap.games)
                 # Latest snapshot plus the games it was about to learn of is
                 # the whole season only when the last release is the final
                 # poll, which is the normal case. Otherwise it is the season
@@ -63,6 +65,13 @@ class History:
                 }
             if actual.slot == FINAL_SLOT:
                 self.final_poll[season] = actual.rank_of()
+
+    def known_before(self, season: int) -> tuple:
+        """Which earlier seasons this history has studied, and how many games
+        of each. Two histories that agree on this give identical starting
+        ratings and brand for ``season``."""
+        return (tuple(sorted((y, self._games_seen.get(y)) for y in self.final_ratings if y < season)),
+                tuple(sorted(y for y in self.final_poll if y < season)))
 
     def prior(self, season: int, settings: PowerSettings, kind: str) -> dict[str, float]:
         earlier = [y for y in self.final_ratings if y < season]
@@ -101,6 +110,8 @@ FEATURES = [
     # where the team stood
     "prev_rank", "prev_ranked", "prev_share", "share_gap_above", "share_gap_below",
     "other_poll_rank", "preseason_rank", "brand",
+    # added in the second round (docs/round-2-results.md)
+    "rank_two_polls_ago", "last_move", "power_conference", "resume_queue", "power_queue",
     # traffic: what happened to the teams around it
     "teams_above_that_lost", "rank_if_only_losers_drop",
     # what it just did (games since last week's poll)
@@ -122,6 +133,12 @@ def _cap(margin: float, cap: float = 28.0) -> float:
 def build_rows(snap: Snapshot, history: History, cache: dict | None = None):
     """Return ``(teams, X)``: the candidates and their feature rows, or None.
 
+    ``cache`` is optional and only saves time. Pass the same dict to every
+    call and a card that was already written is handed back instead of being
+    rebuilt. The key includes which earlier seasons ``history`` knows, because
+    those set the starting ratings and brand, so a card is reused only when
+    it would come out identical.
+
     Candidates are last week's 25 plus every FBS team that has not lost since
     that poll. (Across 2005 to 2023, one team out of 709 newcomers entered the
     AP poll in a week it lost.)
@@ -129,6 +146,14 @@ def build_rows(snap: Snapshot, history: History, cache: dict | None = None):
     prev = snap.latest(snap.poll, before_slot=snap.slot)
     if prev is None:
         return None
+    cache = cache if cache is not None else {}
+    card_key = ("card", snap.season, snap.poll, snap.slot, len(snap.games), history.known_before(snap.season))
+    if card_key not in cache:
+        cache[card_key] = _build_rows(snap, history, prev, cache)
+    return cache[card_key]
+
+
+def _build_rows(snap: Snapshot, history: History, prev: PollRelease, cache: dict):
     other_name = {"ap": "coaches", "coaches": "ap"}.get(snap.poll)
     other = snap.latest(other_name, before_slot=snap.slot) if other_name else None
     pre = next((p for p in snap.polls if p.poll == snap.poll and p.slot == 1), None)
@@ -138,14 +163,16 @@ def build_rows(snap: Snapshot, history: History, cache: dict | None = None):
     pre_rank = pre.rank_of() if pre else {}
     share = points_share(prev)
     brand = history.brand(snap.season)
+    # Momentum: where the team sat two polls ago, and so how it moved last time.
+    prev2 = snap.latest(snap.poll, before_slot=prev.slot)
+    prev2_rank = prev2.rank_of() if prev2 else None
 
     since = [g for g in snap.games if g.slot >= prev.slot]
     before = [g for g in snap.games if g.slot < prev.slot]
 
     # Stage 1 ratings, now and as of last week's poll. The same games feed
     # the AP and Coaches models, so results are cached between them.
-    cache = cache if cache is not None else {}
-    key = (snap.season, snap.slot, prev.slot, len(snap.games))
+    key = ("ratings", snap.season, snap.slot, prev.slot, len(snap.games), history.known_before(snap.season))
     if key not in cache:
         cache[key] = {
             kind: (
@@ -175,6 +202,11 @@ def build_rows(snap: Snapshot, history: History, cache: dict | None = None):
     losers_above = sorted(prev_rank[t] for t in lost_recently if t in prev_rank)
 
     teams = sorted(set(prev_rank) | {t for t in fbs if t not in lost_recently})
+    # The queue: among the teams outside last week's 25, who is first in line?
+    # A tree can read "résumé rank 31" but not "best résumé of anyone waiting".
+    waiting = [t for t in teams if t not in prev_rank]
+    resume_queue = {t: i + 1 for i, t in enumerate(sorted(waiting, key=lambda t: (resume_rank.get(t, len(fbs)), t)))}
+    power_queue = {t: i + 1 for i, t in enumerate(sorted(waiting, key=lambda t: (power_rank.get(t, len(fbs)), t)))}
     week = 17 if snap.slot == FINAL_SLOT else snap.slot
     rows = []
     for t in teams:
@@ -197,6 +229,11 @@ def build_rows(snap: Snapshot, history: History, cache: dict | None = None):
             other_rank.get(t, NOT_RANKED) if other else NAN,
             pre_rank.get(t, NOT_RANKED) if pre else NAN,
             brand.get(t, 0.0),
+            prev2_rank.get(t, NOT_RANKED) if prev2_rank is not None else NAN,
+            prev2_rank.get(t, NOT_RANKED) - (pr if pr is not None else NOT_RANKED) if prev2_rank is not None else NAN,
+            1.0 if snap.is_power_conference(t) else 0.0,
+            resume_queue.get(t, 0),
+            power_queue.get(t, 0),
             above_lost,
             (pr - above_lost) if pr is not None else NOT_RANKED,
             len(gs),
