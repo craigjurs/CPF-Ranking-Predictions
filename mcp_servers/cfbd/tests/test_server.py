@@ -10,6 +10,7 @@ from cfbd_mcp.endpoints import BASE_URL
 EXPECTED = {
     "get_games", "get_rankings", "get_betting_lines", "get_team_records", "get_fbs_teams",
     "get_calendar", "get_sp_ratings", "get_srs_ratings", "get_elo_ratings", "get_game_player_stats",
+    "get_game_media", "get_venues",
 }
 
 

@@ -192,4 +192,4 @@ Answered by Sammy on 2026-11-22.
 
 What "does clout matter?" will produce is not a bare yes or no. It is a size with a margin of error, for example "a high-clout team is ranked about 1.2 spots higher than its results justify, give or take 0.5". The yes or no falls out of that: if the range sits clearly away from zero, the answer is yes. The clout score itself is also a sliding scale and not a 0 or 1 label, so a mid-sized program sits between Ohio State and a small school.
 
-**The CFBD media and venues tools are approved** (Sammy, 2026-11-22) for step 6 (TV), to be added to `endpoints.py` when that step is reached. Nothing has been changed yet. The note to Sports Media Watch before collecting audiences still applies.
+**The CFBD media and venues tools are approved** (Sammy, 2026-11-22) for step 6 (TV), to be added to `endpoints.py` when that step is reached. Both were added on 2026-11-23, see [tv-data-setup.md](../tv-data-setup.md). The note to Sports Media Watch before collecting audiences still applies.

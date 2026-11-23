@@ -17,6 +17,7 @@ ALLOWED_HOST = "api.collegefootballdata.com"
 
 SEASON_TYPES = {"regular", "postseason", "both"}
 CLASSIFICATIONS = {"fbs", "fcs", "ii", "iii"}
+MEDIA_TYPES = {"tv", "radio", "web", "ppv", "mobile"}
 _NAME = re.compile(r"^[A-Za-z0-9 &.'()\-]{1,60}$")
 
 
@@ -49,6 +50,13 @@ def _classification(v) -> str:
     v = str(v).lower()
     if v not in CLASSIFICATIONS:
         raise ParamError(f"classification must be one of {sorted(CLASSIFICATIONS)}")
+    return v
+
+
+def _media_type(v) -> str:
+    v = str(v).lower()
+    if v not in MEDIA_TYPES:
+        raise ParamError(f"media_type must be one of {sorted(MEDIA_TYPES)}")
     return v
 
 
@@ -114,6 +122,21 @@ ENDPOINTS: dict[str, Endpoint] = {
             "conference": ("conference", _name),
         },
     ),
+    # Which network showed each game, and when it kicked off. Team-level only.
+    "game_media": Endpoint(
+        "/games/media",
+        {
+            "year": ("year", _year),
+            "week": ("week", _week),
+            "season_type": ("seasonType", _season_type),
+            "team": ("team", _name),
+            "conference": ("conference", _name),
+            "media_type": ("mediaType", _media_type),
+            "classification": ("classification", _classification),
+        },
+    ),
+    # Stadiums and their capacity. CFBD takes no options for this one.
+    "venues": Endpoint("/venues", {}, required=()),
     "game_player_stats": Endpoint(
         "/games/players",
         {
