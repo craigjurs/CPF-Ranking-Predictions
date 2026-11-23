@@ -13,14 +13,14 @@ It covers two ideas from the ideas list:
 |---|---|---|---|---|
 | News volume and mood per team | **GDELT** (free news index) | 2015 on (2017 on through the easy API) | Free | Worth a small pilot |
 | Public attention per team, back to 2005 | **Google Trends** | 2004 on | Free, but no stable official access for old data | Second choice, fragile |
-| "A key player is out" | **CFBD player box scores we can already reach** | Same as our game data | Free, uses existing quota | Best first step for player headlines |
+| "A key player is out", at any stat-producing position | **CFBD player box scores** | Same as our game data | Free, uses existing quota | Best first step for player headlines |
 | Arrests, domestic issues, conflicts, NIL | No clean historical source exists | Patchy | n/a | Don't build per player. Team-level counts from GDELT at most |
 
 **No free source gives team news with good timestamps back to 2005.** Good coverage starts in 2015. So news features can only be tested on roughly the last ten seasons, as an optional add-on to the main model, not as part of its 2000 to 2025 backbone.
 
 **Recommended order of work:**
 
-1. Derive a team-level "starting QB changed" flag from CFBD box scores. It needs no new vendor and no privacy-policy change.
+1. Derive team-level availability flags (quarterback, running back, receiver, defense, kicker, and share of production missing) from CFBD box scores. It needs no new vendor and no privacy-policy change.
 2. Run a one-season GDELT pilot to see if news volume and tone explain anything the baseline model misses.
 3. Only if the pilot shows signal, backfill GDELT to 2015 and consider Google Trends for the older seasons.
 
@@ -120,10 +120,31 @@ Two to three seasons, for some conferences, for conference games only, is far to
 
 **The better route is to infer absences from data we already have access to.** A box score is an **attendance sheet**: if the quarterback who threw every pass through week 6 has no passes in week 7, he was out. CFBD publishes per-game player stats (endpoint name and year coverage to be confirmed through the MCP tools). From that we can derive team-level flags with the same history as our game data:
 
-- `qb_changed`: the leading passer differs from the team's season-to-date leading passer.
-- `top_rusher_missing`, `top_receiver_missing`: the same idea for other positions.
+The quarterback is only the most obvious case. The same method covers every position that leaves a trace in the box score:
 
-This flag is known by Saturday night, before the Sunday poll, so there is no leakage. The output is a yes/no per team and week, with no player names stored.
+| Flag (per team and week) | How it is measured | Data support |
+|---|---|---|
+| `qb_changed` | The leader in pass attempts differs from the season-to-date leader | Strong |
+| `top_rb_missing` | The season-to-date carries leader has no carries | Strong |
+| `top_receiver_missing` | The season-to-date receptions leader has no catches | Good. A healthy receiver can also be held without a catch |
+| `top_defender_missing` | A season-to-date leader in tackles has no defensive stats | Fair. Depends on how complete defensive box scores are in older seasons, to be checked |
+| `kicker_changed` | A different player attempts the field goals | Good |
+| `production_missing_pct` | Share of the team's season-to-date yards and tackles that belonged to players who did not appear | Best single number. It counts every absent contributor, not only the top one |
+| `usage_drop` | A leader appears but with far less work than usual, which catches a player hurt early in the game | Fair. Blowouts also cause this, so it needs the score as context |
+
+**What box scores cannot see:**
+
+- **The reason.** An absence looks the same whether it is an injury, a suspension, a benching or rest in a blowout. For poll voters the effect is similar, so this matters less than it sounds.
+- **Offensive linemen.** They record no stats, so their absences are invisible.
+- **How long it will last.** "Out for the season" and "missed one game" look identical in the first week. The flag can only count consecutive weeks missed so far.
+- **Week 1.** There is no season-to-date baseline yet. Last season's leaders can stand in, but transfers and departures make that noisy.
+
+**Where real injury information would come from**, and why it only supplements the flags above:
+
+- Conference availability reports give the reason and status, but only from 2023 or 2024 on. They can be used to check how well the box-score flags match reality in recent seasons.
+- GDELT team-level counts of articles mentioning a team together with "injury" or "out for season" (2015 on, no names stored) can hint at severity and duration.
+
+All flags are known by Saturday night, before the Sunday poll, so there is no leakage. Player rows are used only while computing the flags, stay in `data/raw/` (gitignored), and the stored output is one row per team and week with no player names.
 
 One setup step is needed: the CFBD MCP server currently allows only games, rankings, lines, records, teams, calendar and ratings. Per-game player pulls also use more quota than team pulls, so plan them by week and conference.
 
