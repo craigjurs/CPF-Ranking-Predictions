@@ -67,7 +67,7 @@ We already have most of this, with no new source needed.
 |---|---|---|
 | Recent-success brand (share of the last five seasons finishing ranked) | Our own poll data | **Already a feature** in the Stage 2 model |
 | Long-run prestige (weeks ranked in the AP poll over the previous 20 or 50 years) | CFBD poll history, which goes back to 1936 | Easy to build from data we can already pull |
-| Fan base size (stadium size, average attendance) | CFBD venues and game attendance | The venues tool is not on our allowed list yet. Adding it means a change to `endpoints.py`, which needs your OK |
+| Fan base size (stadium size, average attendance) | CFBD venues and game attendance | The venues tool is not on our allowed list yet. Adding it to `endpoints.py` is approved, see "Decisions so far" |
 | "Blue blood" yes or no | A hand-made list of 8 to 12 programs | Simple, but the list itself is an opinion. Use only as a cross-check |
 
 ### Conference power
@@ -84,7 +84,7 @@ To give a feel for the spread: for the 2024-25 year the average full-share payou
 | Source | What it has | Years | Cost | Catch | Verdict |
 |---|---|---|---|---|---|
 | [Sports Media Watch](https://www.sportsmediawatch.com/college-football-tv-ratings/) | Viewers per game, with teams and network | Season pages back to about 2013 (start year not confirmed) | Free to read | Much of it is in chart images, so collecting it is slow. No reuse terms stated, so ask before scraping. Games on SEC Network, ACC Network and streaming have no Nielsen number | **Best free source**, with effort |
-| Network and kickoff slot for every game | CFBD game media | 2000s on | Free with our key | Not on our allowed list yet (needs your OK) | **The cheap stand-in.** "How many games on ABC, CBS, Fox or NBC in primetime" is close to what the 2007 study used |
+| Network and kickoff slot for every game | CFBD game media | 2000s on | Free with our key | Not on our allowed list yet. Adding it is approved | **The cheap stand-in.** "How many games on ABC, CBS, Fox or NBC in primetime" is close to what the 2007 study used |
 | Nielsen directly | Complete ratings | Everything | Paid, enterprise pricing | | Not worth it |
 
 A warning that applies to TV more than anything else: **networks pick the games they expect to be good.** A highly ranked team gets the primetime slot *because* it is highly ranked. So TV must be measured from earlier seasons (a team's average audience over the previous three years), never from the current one.
@@ -177,7 +177,7 @@ Even if the answer to "is it biased?" turns out to be "a little", these same mea
 | 3 | Add EADA finances and conference payouts | Two free downloads, kept in `data/raw/` | No |
 | 4 | Run the acid test | None | No |
 | 5 | Add committee ties from recusal lists | Hand-typed, about 16 rows a season | No |
-| 6 | Add TV (network slots from CFBD, then Sports Media Watch audiences) | CFBD media and venues tools | **Yes**: an `endpoints.py` change, and a note to Sports Media Watch before collecting |
+| 6 | Add TV (network slots from CFBD, then Sports Media Watch audiences) | CFBD media and venues tools | `endpoints.py` change **approved**. Still send a note to Sports Media Watch before collecting |
 
 Steps 1 and 2 cost nothing and would show within a day of work whether there is a signal worth chasing.
 
@@ -192,6 +192,4 @@ Answered by Sammy on 2026-11-22.
 
 What "does clout matter?" will produce is not a bare yes or no. It is a size with a margin of error, for example "a high-clout team is ranked about 1.2 spots higher than its results justify, give or take 0.5". The yes or no falls out of that: if the range sits clearly away from zero, the answer is yes. The clout score itself is also a sliding scale and not a 0 or 1 label, so a mid-sized program sits between Ohio State and a small school.
 
-## Still open
-
-- **Adding the CFBD media and venues tools** for step 6 (TV). Not approved yet. It means a change to `endpoints.py`, so it waits for Sammy's OK.
+**The CFBD media and venues tools are approved** (Sammy, 2026-11-22) for step 6 (TV), to be added to `endpoints.py` when that step is reached. Nothing has been changed yet. The note to Sports Media Watch before collecting audiences still applies.
