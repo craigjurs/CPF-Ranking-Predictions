@@ -133,6 +133,25 @@ def get_elo_ratings(
     return _call("elo_ratings", year=year, week=week, season_type=season_type, team=team, conference=conference)
 
 
+@mcp.tool(annotations=READ_ONLY)
+def get_game_player_stats(
+    year: int,
+    week: int | None = None,
+    season_type: SeasonType | None = None,
+    team: str | None = None,
+    conference: str | None = None,
+) -> dict:
+    """Per-game player box scores. Needs year plus at least one of week, team, or conference.
+
+    Use it for team-level features only (for example "did the leading passer change").
+    Keep raw pulls in data/raw/ and never commit player-level rows.
+    """
+    if week is None and team is None and conference is None:
+        return {"error": "Give at least one of week, team, or conference to keep the pull small."}
+    return _call("game_player_stats", year=year, week=week, season_type=season_type, team=team,
+                 conference=conference)
+
+
 def main() -> None:
     mcp.run("stdio")
 

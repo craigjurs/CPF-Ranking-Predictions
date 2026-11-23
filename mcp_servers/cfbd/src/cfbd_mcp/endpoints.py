@@ -114,6 +114,16 @@ ENDPOINTS: dict[str, Endpoint] = {
             "conference": ("conference", _name),
         },
     ),
+    "game_player_stats": Endpoint(
+        "/games/players",
+        {
+            "year": ("year", _year),
+            "week": ("week", _week),
+            "season_type": ("seasonType", _season_type),
+            "team": ("team", _name),
+            "conference": ("conference", _name),
+        },
+    ),
 }
 
 
