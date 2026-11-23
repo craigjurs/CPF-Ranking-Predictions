@@ -101,6 +101,8 @@ FEATURES = [
     # where the team stood
     "prev_rank", "prev_ranked", "prev_share", "share_gap_above", "share_gap_below",
     "other_poll_rank", "preseason_rank", "brand",
+    # added in the second round (docs/stage-2-round-2.md)
+    "rank_two_polls_ago", "last_move", "power_conference", "resume_queue", "power_queue",
     # traffic: what happened to the teams around it
     "teams_above_that_lost", "rank_if_only_losers_drop",
     # what it just did (games since last week's poll)
@@ -138,6 +140,9 @@ def build_rows(snap: Snapshot, history: History, cache: dict | None = None):
     pre_rank = pre.rank_of() if pre else {}
     share = points_share(prev)
     brand = history.brand(snap.season)
+    # Momentum: where the team sat two polls ago, and so how it moved last time.
+    prev2 = snap.latest(snap.poll, before_slot=prev.slot)
+    prev2_rank = prev2.rank_of() if prev2 else None
 
     since = [g for g in snap.games if g.slot >= prev.slot]
     before = [g for g in snap.games if g.slot < prev.slot]
@@ -175,6 +180,11 @@ def build_rows(snap: Snapshot, history: History, cache: dict | None = None):
     losers_above = sorted(prev_rank[t] for t in lost_recently if t in prev_rank)
 
     teams = sorted(set(prev_rank) | {t for t in fbs if t not in lost_recently})
+    # The queue: among the teams outside last week's 25, who is first in line?
+    # A tree can read "résumé rank 31" but not "best résumé of anyone waiting".
+    waiting = [t for t in teams if t not in prev_rank]
+    resume_queue = {t: i + 1 for i, t in enumerate(sorted(waiting, key=lambda t: (resume_rank.get(t, len(fbs)), t)))}
+    power_queue = {t: i + 1 for i, t in enumerate(sorted(waiting, key=lambda t: (power_rank.get(t, len(fbs)), t)))}
     week = 17 if snap.slot == FINAL_SLOT else snap.slot
     rows = []
     for t in teams:
@@ -197,6 +207,11 @@ def build_rows(snap: Snapshot, history: History, cache: dict | None = None):
             other_rank.get(t, NOT_RANKED) if other else NAN,
             pre_rank.get(t, NOT_RANKED) if pre else NAN,
             brand.get(t, 0.0),
+            prev2_rank.get(t, NOT_RANKED) if prev2_rank is not None else NAN,
+            prev2_rank.get(t, NOT_RANKED) - (pr if pr is not None else NOT_RANKED) if prev2_rank is not None else NAN,
+            1.0 if snap.is_power_conference(t) else 0.0,
+            resume_queue.get(t, 0),
+            power_queue.get(t, 0),
             above_lost,
             (pr - above_lost) if pr is not None else NOT_RANKED,
             len(gs),

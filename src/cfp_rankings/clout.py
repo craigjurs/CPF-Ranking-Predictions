@@ -52,10 +52,9 @@ import numpy as np
 from cfp_rankings.finance import money_scores
 from cfp_rankings.tv import fan_base, tv_scores
 from cfp_rankings.power import POWER, RESUME, Ratings, fit_ratings, next_season_prior
-from cfp_rankings.snapshots import FINAL_SLOT, RAW_DIR, Game, Season
+from cfp_rankings.snapshots import FINAL_SLOT, POWER_CONFERENCES, RAW_DIR, Game, Season
 
 CAP = 26  # every team outside a top 25 is treated as "26th"
-POWER_CONFERENCES = {"ACC", "Big 12", "Big Ten", "Pac-12", "SEC"}
 CFP_SEASONS = tuple(y for y in range(2014, 2024) if y != 2020)
 
 

@@ -32,7 +32,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 import statistics
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 RAW_DIR = Path(__file__).resolve().parents[2] / "data" / "raw"
@@ -43,6 +43,10 @@ POLLS = ("ap", "coaches", "cfp")
 # A "slot" puts every poll release of a season on one number line.
 # Regular-season week N is slot N. The final (post-bowl) poll is slot 100.
 FINAL_SLOT = 100
+
+# The leagues the sport calls "power conferences" in the seasons we study.
+# Notre Dame is independent but is treated as one of them.
+POWER_CONFERENCES = frozenset({"ACC", "Big 12", "Big Ten", "Pac-12", "SEC"})
 
 
 def era(season: int) -> str:
@@ -143,8 +147,12 @@ class Season:
     Models must never be handed a ``Season``. They get ``season.snapshot(...)``.
     """
 
-    def __init__(self, year: int, games: list[Game], polls: list[PollRelease], week_starts: dict[int, dt.datetime]):
+    def __init__(self, year: int, games: list[Game], polls: list[PollRelease], week_starts: dict[int, dt.datetime],
+                 conferences: dict[str, str] | None = None):
         self.year = year
+        # Team -> league for this season. Membership is settled before the
+        # first kickoff, so handing it to every snapshot is not peeking.
+        self.conferences = conferences or {}
         self.games = sorted(games, key=lambda g: (g.start, g.id))
         self.polls = sorted(polls, key=lambda p: (p.slot, POLLS.index(p.poll)))
         self.week_starts = week_starts  # slot -> first moment of that week
@@ -164,7 +172,11 @@ class Season:
     def from_raw(cls, year: int, raw_games, raw_lines, raw_rankings, raw_calendar) -> "Season":
         lines = {row["id"]: row.get("lines") or [] for row in raw_lines}
         games = []
+        conferences: dict[str, str] = {}
         for g in raw_games:
+            for side in ("home", "away"):
+                if g.get(f"{side}Conference"):
+                    conferences[g[f"{side}Team"]] = g[f"{side}Conference"]
             slot = slot_of(g["seasonType"], g["week"])
             if slot is None or not g.get("completed") or g.get("homePoints") is None or g.get("awayPoints") is None:
                 continue
@@ -216,7 +228,7 @@ class Season:
             slot = slot_of(c["seasonType"], c["week"])
             if slot is not None:
                 week_starts[slot] = _parse_time(c["startDate"])
-        return cls(year, games, polls, week_starts)
+        return cls(year, games, polls, week_starts, conferences)
 
     # ---------- the one door models are allowed through ----------
     def releases(self, poll: str) -> list[PollRelease]:
@@ -246,7 +258,8 @@ class Season:
         return known
 
     def snapshot(self, poll: str, slot: int) -> "Snapshot":
-        return Snapshot(self.year, poll, slot, tuple(self.games_known_at(slot)), tuple(self.polls_known_at(poll, slot)))
+        return Snapshot(self.year, poll, slot, tuple(self.games_known_at(slot)), tuple(self.polls_known_at(poll, slot)),
+                        self.conferences)
 
 
 @dataclass(frozen=True)
@@ -258,6 +271,10 @@ class Snapshot:
     slot: int  # the release being predicted
     games: tuple[Game, ...]
     polls: tuple[PollRelease, ...]
+    conferences: dict[str, str] = field(default_factory=dict, compare=False, repr=False)
+
+    def is_power_conference(self, team: str) -> bool:
+        return self.conferences.get(team) in POWER_CONFERENCES or team == "Notre Dame"
 
     def latest(self, poll: str, before_slot: int | None = None) -> PollRelease | None:
         """Most recent known release of ``poll`` (optionally strictly before a slot)."""

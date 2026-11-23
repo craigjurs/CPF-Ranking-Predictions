@@ -61,3 +61,24 @@ def test_model_follows_the_fit_predict_contract(season):
     predicted = model.predict(season.snapshot("ap", 2))
     assert len(predicted) == 25 and len(set(predicted)) == 25
     assert abs(sum(share for _, share in model.importance()) - 1.0) < 1e-9 or not any(s for _, s in model.importance())
+
+
+def test_round_two_features(season):
+    teams, X = build_rows(season.snapshot("ap", 2), History())
+    row = lambda t: dict(zip(FEATURES, X[teams.index(t)]))
+    # Week 2 has only one earlier poll, so there is no "two polls ago" yet.
+    assert np.isnan(row("Team 05")["rank_two_polls_ago"]) and np.isnan(row("Team 05")["last_move"])
+    # Ranked teams are not in the queue. Every waiting team has a distinct place in it.
+    assert row("Team 05")["resume_queue"] == 0
+    waiting = [t for t in teams if row(t)["prev_ranked"] == 0]
+    assert sorted(row(t)["resume_queue"] for t in waiting) == list(range(1, len(waiting) + 1))
+    assert row("Team 05")["power_conference"] == 0  # the made-up season has no leagues
+    assert season.snapshot("ap", 2).is_power_conference("Notre Dame")
+
+
+def test_seeds_are_averaged(season):
+    model = PollRanker(trees=5, seeds=(0, 1))
+    model.fit(examples(season, "ap"))
+    assert len(model.models) == 2
+    scores = model.scores(season.snapshot("ap", 2))
+    assert abs(sum(scores.values())) < 1e-6  # standardized before averaging
