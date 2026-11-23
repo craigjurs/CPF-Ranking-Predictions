@@ -1,6 +1,6 @@
 """Do the availability flags make the Stage 2 poll model better?
 
-    uv run python -m cfp_rankings.availability_eval --seeds 0 1 2 3
+    uv run python -m cfp_rankings.availability_eval --seeds 0 1 2 3   (each "seed" is a batch of three models)
 
 Analogy: a taste test with two cooks using the same recipe, where one of them
 also gets an extra spice (the flags). To be fair, both cook the same dishes
