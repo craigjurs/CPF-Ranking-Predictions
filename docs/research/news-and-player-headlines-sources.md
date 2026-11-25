@@ -152,7 +152,7 @@ One setup step is needed: the CFBD MCP server currently allows only games, ranki
 
 Done on 2026-11-22. `mcp_servers/cfbd/src/cfbd_mcp/endpoints.py` is part of the security harness, which agents normally don't edit. Sammy approved a one-time exception, and the entry `game_player_stats` (route `/games/players`) was added. It reuses the validators already in the file, so it adds one menu item and nothing else. The matching tool is `get_game_player_stats`. It refuses to run without at least one of `week`, `team` or `conference`, which keeps each pull small.
 
-The route name is from memory and was not tested against the live API. The first real call will confirm it.
+The route name was confirmed against the live API on 2026-11-23. The flags built from it, and the test of whether they help, are in [availability-flags-results.md](../availability-flags-results.md).
 
 ### Arrests, conflicts and domestic issues
 

@@ -20,6 +20,7 @@ This repo is public and is worked on by AI agents, so it ships with a security h
 - Running list of ideas to try next (news, pundits, recruiting, markets and more): [docs/IDEAS.md](docs/IDEAS.md)
 
 - **First real model.** Stage 1 is a power rating learned from scores alone. Stage 2 learns how AP and Coaches voters reorder their ballots each week, and beats the baselines in the walk-forward test. Results and walkthrough: [docs/stage-1-2-results.md](docs/stage-1-2-results.md). Second round of improvements: [docs/round-2-results.md](docs/round-2-results.md)
+- **Player availability flags.** Team-level "was a key player missing?" flags read off box scores, with no player names stored. Built and tested, but they did not improve the poll model, so they are off by default. Results: [docs/availability-flags-results.md](docs/availability-flags-results.md)
 
 ```sh
 uv run python -m cfp_rankings.pull       # fetch anything not cached yet (through the CFBD MCP server)
@@ -35,7 +36,7 @@ uv run --extra dev python -m pytest -q   # pipeline tests
 ## Layout
 
 ```
-src/cfp_rankings/     Data pull, snapshots, baselines, power rating, poll model, CFP model, clout study, TV exposure, metrics, backtest
+src/cfp_rankings/     Data pull, snapshots, baselines, power rating, poll model, CFP model, clout study, TV exposure, availability flags, metrics, backtest
 tests/pipeline/       Tests for the above (no network needed)
 data/raw/             Cached CFBD pulls and federal EADA finance files (gitignored)
 mcp_servers/cfbd/     Read-only CFBD MCP server (holds the key so agents don't)

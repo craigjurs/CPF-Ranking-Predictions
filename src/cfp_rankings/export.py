@@ -2,7 +2,8 @@
 
     uv run python -m cfp_rankings.export
 
-Two CSVs you can open in a spreadsheet. Every row carries a ``known_from_slot``
+Two CSVs you can open in a spreadsheet, plus ``availability.csv`` (one row per
+team and game, no player names or ids) for seasons with box scores pulled. Every row carries a ``known_from_slot``
 column: the first poll release that was allowed to see it. A snapshot is then
 just a filter, ``known_from_slot <= the poll I am predicting``.
 
@@ -18,6 +19,7 @@ import argparse
 import csv
 from pathlib import Path
 
+from cfp_rankings.availability import FLAGS
 from cfp_rankings.snapshots import FINAL_SLOT, RAW_DIR, Season, load_seasons
 
 OUT_DIR = RAW_DIR.parent / "processed"
@@ -59,6 +61,15 @@ def export(seasons: dict[int, Season], out_dir: Path = OUT_DIR) -> tuple[int, in
                 for r in p.ranks:
                     w.writerow([p.season, p.poll, p.slot, r.rank, r.team, r.points, r.first_place_votes])
                     n_ranks += 1
+    with open(out_dir / "availability.csv", "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["season", "week_slot", "known_from_slot", "team", "opponent", *FLAGS])
+        for s in seasons.values():
+            for g in s.games:
+                for team, opponent, card in ((g.home, g.away, g.home_avail), (g.away, g.home, g.away_avail)):
+                    if card is not None:
+                        cells = ["" if v != v else round(v, 4) for v in (getattr(card, name) for name in FLAGS)]
+                        w.writerow([g.season, g.slot, known_from_slot(s, g), team, opponent, *cells])
     return n_games, n_ranks
 
 

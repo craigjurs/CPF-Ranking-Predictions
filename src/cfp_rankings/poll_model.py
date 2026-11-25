@@ -43,7 +43,7 @@ from __future__ import annotations
 import lightgbm as lgb
 import numpy as np
 
-from cfp_rankings.features import FEATURES, History, build_rows, labels
+from cfp_rankings.features import AVAILABILITY_FEATURES, FEATURES, History, build_rows, labels
 from cfp_rankings.snapshots import PollRelease, Snapshot
 
 Example = tuple[Snapshot, PollRelease]
@@ -120,13 +120,24 @@ class PollRanker:
         predict(snapshot)  return teams, best first
     """
 
-    def __init__(self, trees: int = 600, seeds: tuple[int, ...] = (0, 1, 2), cache: dict | None = None):
+    def __init__(
+        self,
+        trees: int = 600,
+        seeds: tuple[int, ...] = (0, 1, 2),
+        cache: dict | None = None,
+        availability: bool = False,
+    ):
         self.trees = trees
         # A small committee instead of one judge: the same model is trained
         # once per seed, each seeing a slightly different random sample of the
         # data, and their scores are averaged. One judge's quirks wash out.
         self.seeds = tuple(seeds)
-        self.name = "Stage 2: learned ranker"
+        # availability=True adds the "was a key player missing?" columns. It
+        # is off by default: in the walk-forward test they did not reduce the
+        # error (see docs/availability-flags-results.md).
+        self.availability = availability
+        self.features = FEATURES + (AVAILABILITY_FEATURES if availability else [])
+        self.name = "Stage 2: learned ranker" + (" + availability flags" if availability else "")
         self.history = History()
         self.models: list[lgb.Booster] = []
         # Scouting cards already written. Share one dict between models (as
@@ -138,7 +149,7 @@ class PollRanker:
         self.history.learn(examples)
         tables, answers, sizes = [], [], []
         for snap, actual in examples:
-            built = build_rows(snap, self.history, self._ratings_cache)
+            built = build_rows(snap, self.history, self._ratings_cache, self.availability)
             if built is None:
                 continue  # the preseason poll: nothing to start from
             teams, X = built
@@ -150,7 +161,7 @@ class PollRanker:
         X, y = np.vstack(tables), np.concatenate(answers)
         objective = pairwise_objective(y, sizes)
         self.models = [
-            lgb.train(dict(SETTINGS, seed=seed, objective=objective), lgb.Dataset(X, y, feature_name=FEATURES), self.trees)
+            lgb.train(dict(SETTINGS, seed=seed, objective=objective), lgb.Dataset(X, y, feature_name=self.features), self.trees)
             for seed in self.seeds
         ]
 
@@ -158,7 +169,7 @@ class PollRanker:
         """The model's strength number for every candidate. Higher is better."""
         if not self.models:
             return None
-        built = build_rows(snap, self.history, self._ratings_cache)
+        built = build_rows(snap, self.history, self._ratings_cache, self.availability)
         if built is None:
             return None
         teams, X = built
@@ -182,4 +193,4 @@ class PollRanker:
             return []
         gain = sum(m.feature_importance(importance_type="gain") for m in self.models)
         total = float(gain.sum()) or 1.0
-        return sorted(zip(FEATURES, (float(g) / total for g in gain)), key=lambda kv: -kv[1])
+        return sorted(zip(self.features, (float(g) / total for g in gain)), key=lambda kv: -kv[1])
